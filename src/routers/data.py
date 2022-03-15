@@ -25,7 +25,7 @@ async def upload_data(table: ValidTableName, file: UploadFile, encoding: str = "
         encoding (str, optional): 文件编码. 默认为 "utf-8".
 
     Raises:
-        UploadFailed: 上传文件失败异常
+        : 上传文件失败异常
 
     Returns:
         _type_: _description_
