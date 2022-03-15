@@ -12,5 +12,3 @@ __column_count ={
 }
 def get_insert_command(table_name:ValidTableName):
 	return "INSERT INTO {} VALUES ({})".format(table_name.value,",".join(["?"]*__column_count[table_name.value]))
-
-	

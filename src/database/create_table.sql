@@ -1,0 +1,15 @@
+/*
+User
+*/
+CREATE TABLE IF NOT EXISTS "USER" (
+	"id" SERIAL PRIMARY KEY,
+	"username" VARCHAR(32) NOT NULL UNIQUE,
+	"password" VARCHAR(64) NOT NULL,
+	"is_active" BOOL NOT NULL DEFAULT FALSE,
+	"is_admin" BOOL NOT NULL DEFAULT FALSE
+);
+
+
+/*
+
+*/

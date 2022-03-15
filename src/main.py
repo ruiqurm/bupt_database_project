@@ -57,6 +57,16 @@ async def baseexception_handler(request, exception):
         "message": exception.detail
     }, status_code = exception.status_code)
 
-# import uvicorn
-# if __name__ == "__main__":
-#     uvicorn.run("main:app", host="127.0.0.1", port=8000, log_level="info",reload=True)
+"""
+初始化
+"""
+# @app.on_event("startup")
+# async def startup_pool():
+#     from .database import init_databasepool
+#     await init_databasepool()
+    
+
+
+import uvicorn
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, log_level="info",reload=True)

@@ -44,7 +44,11 @@ class CreateFailed(BaseException):
         self,
     ) -> None:
         super().__init__(detail="创建失败")
-
+class NoSuchUser(BaseException):
+    def __init__(
+        self,
+    ) -> None:
+        super().__init__(detail="没有这个用户")
 class PermissionDenied(BaseException):
     def __init__(
         self,

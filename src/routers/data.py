@@ -127,26 +127,26 @@ async def get_sector_detail(category: SectorOrEnocde, name_or_id: str, choice: G
                 return {}
 
 
-class GranularityChoice(Enum, str):
-    a15min = "15min"
-    a30min = "30min"
-    hour = "hour"
+# class GranularityChoice(Enum, str):
+#     a15min = "15min"
+#     a30min = "30min"
+#     hour = "hour"
 
 
-@data_router.get("/prb")
-def get_avg_prb_line_chart(enodeb_name: str, prbindex: int, granularity: GranularityChoice, from_time: datetime.datetime, to_time: datetime.datetime):
-    """
-    输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
-    granularity : 粒度
-    prbindex: 第几个prb
-    enodeb_name: 网元名称
-    """
+# @data_router.get("/prb")
+# def get_avg_prb_line_chart(enodeb_name: str, prbindex: int, granularity: GranularityChoice, from_time: datetime.datetime, to_time: datetime.datetime):
+#     """
+#     输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
+#     granularity : 粒度
+#     prbindex: 第几个prb
+#     enodeb_name: 网元名称
+#     """
 
-    command = """
-    SELECT StartTime,avg({}) from tbPRB where ENODEB_NAME = "{}"
-    GROUP BY strftime("%s",substr(StartTime,7,4)||"-"|| substr(StartTime,1,2)||"-"|| substr(StartTime,4,2) ||  substr(StartTime,11,9)) / {};
-    """
-    pass
+#     command = """
+#     SELECT StartTime,avg({}) from tbPRB where ENODEB_NAME = "{}"
+#     GROUP BY strftime("%s",substr(StartTime,7,4)||"-"|| substr(StartTime,1,2)||"-"|| substr(StartTime,4,2) ||  substr(StartTime,11,9)) / {};
+#     """
+#     pass
 
 
 db = sqlite3.connect("data.db")
