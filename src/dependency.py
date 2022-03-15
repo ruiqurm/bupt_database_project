@@ -1,6 +1,7 @@
 
 from fastapi import Request, Depends
-from .user_token import oauth2_scheme, ALGORITHM, SECRET_KEY, TokenData
+from .user_token import oauth2_scheme, TokenData
+from .settings import Settings
 from .user import UserInDB
 from .exceptions import InactiveUser, Unauthorization, PermissionDenied, NoSuchUser
 from jose import JWTError, jwt
@@ -25,8 +26,8 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
     """
     try:
         # 校验jwt
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("bupt")
+        payload = jwt.decode(token, Settings.SECRET_KEY, algorithms=[Settings.ALGORITHM])
+        username: str = payload.get(Settings.PAYLOAD_NAME)
         if username is None:
             raise NoSuchUser()
         # 查询用户数据

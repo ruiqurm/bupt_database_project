@@ -5,9 +5,9 @@ from fastapi import Request
 from fastapi.security import OAuth2PasswordRequestForm
 from ..user import UserIn, User
 from ..exceptions import Unauthorization, CreateFailed, NoSuchUser
-from ..utils import CommonResponse
-from ..user_token import Token, authenticate_user, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
+from ..user_token import Token, authenticate_user, get_password_hash, create_access_token
 from ..dependency import get_current_user, check_admin
+from ..settings import Settings
 from fastapi import APIRouter
 from fastapi import Depends
 from datetime import datetime, timedelta
@@ -44,7 +44,7 @@ async def register(user: UserIn):
     """
     user.password = get_password_hash(user.password)
     try:
-        con = await asyncpg.connect(user='postgres', database="tb")
+        con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
         await con.execute('INSERT INTO "USER" ("username", "password") VALUES ($1,$2)', user.username, user.password)
         await con.close()
     except asyncpg.PostgresError as e:
@@ -79,9 +79,9 @@ async def login(data: UserIn):
     # 验证用户密码
     user = await authenticate_user(data.username, data.password)
     # 签发token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"bupt": user.username}, expires_delta=access_token_expires
+        data={Settings.PAYLOAD_NAME: user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -103,7 +103,7 @@ async def get_users():
     Returns:
         List[User]: 所有用户的信息
     """
-    con = await asyncpg.connect(user='postgres', database="tb")
+    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
     users = await con.fetch('SELECT * FROM "USER"')
     await con.close()
     return [User(**user) for user in users]
@@ -117,7 +117,7 @@ async def grant_user_as_admin(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user='postgres', database="tb")
+    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
     await con.execute('UPDATE "USER" SET is_admin = true WHERE id = $1', userid)
     await con.close()
 
@@ -130,7 +130,7 @@ async def revoke_user_as_admin(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user='postgres', database="tb")
+    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
     await con.execute('UPDATE "USER" SET is_admin = false WHERE id = $1', userid)
     await con.close()
 
@@ -143,7 +143,7 @@ async def activate_user(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user='postgres', database="tb")
+    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
     await con.execute('UPDATE "USER" SET is_active = true WHERE id = $1', userid)
     await con.close()
 
@@ -156,6 +156,6 @@ async def deactivate_user(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user='postgres', database="tb")
+    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
     await con.execute('UPDATE "USER" SET is_active = false WHERE id = $1', userid)
     await con.close()
