@@ -18,7 +18,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
 
     Raises:
             NoSuchUser: 没有这个用户
-            Unauthorization: 密码错误
+            Unauthorization: 验证失败
             InactiveUser: 用户未激活
 
     Returns:

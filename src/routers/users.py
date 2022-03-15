@@ -4,7 +4,7 @@
 from fastapi import Request
 from fastapi.security import OAuth2PasswordRequestForm
 from ..user import UserIn, User
-from ..exceptions import Unauthorization, CreateFailed, NoSuchUser
+from ..exceptions import OperationFailed
 from ..user_token import Token, authenticate_user, get_password_hash, create_access_token
 from ..dependency import get_current_user, check_admin
 from ..settings import Settings
@@ -48,7 +48,7 @@ async def register(user: UserIn):
         await con.execute('INSERT INTO "USER" ("username", "password") VALUES ($1,$2)', user.username, user.password)
         await con.close()
     except asyncpg.PostgresError as e:
-        raise CreateFailed()
+        raise OperationFailed()
     return {}
 
 

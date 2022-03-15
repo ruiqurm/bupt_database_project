@@ -27,7 +27,7 @@ class Unauthorization(BaseException):
         detail: Any = None,
         headers: Optional[Dict[str, Any]] = None,
     ) -> None:
-        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误",headers={"WWW-Authenticate": "Bearer"})
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail="验证失败",headers={"WWW-Authenticate": "Bearer"})
 class ValidateError(BaseException):
     def __init__(
         self,
@@ -39,11 +39,14 @@ class InactiveUser(BaseException):
         self,
     ) -> None:
         super().__init__(detail="用户未激活")
-class CreateFailed(BaseException):
+class OperationFailed(BaseException):
+    """通用失败异常
+    """
     def __init__(
         self,
+        detail = "操作失败"
     ) -> None:
-        super().__init__(detail="创建失败")
+        super().__init__(detail=detail)
 class NoSuchUser(BaseException):
     def __init__(
         self,
@@ -54,10 +57,3 @@ class PermissionDenied(BaseException):
         self,
     ) -> None:
         super().__init__(detail="权限不足")
-
-class  UploadFailed(BaseException):
-    def __init__(
-        self,
-        detail:str= "上传失败"
-    ) -> None:
-        super().__init__(detail=detail)

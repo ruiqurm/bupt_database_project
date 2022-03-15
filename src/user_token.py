@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Any,Optional,Dict
 from datetime import datetime, timedelta
 from .user import UserInDB
-from .exceptions import NoSuchUser,InactiveUser,Unauthorization
+from .exceptions import NoSuchUser,InactiveUser,Unauthorization, ValidateError
 from jose import jwt
 import asyncpg
 from .settings import Settings
@@ -40,7 +40,7 @@ async def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
         raise InactiveUser()
     # 验证用户密码是否正确
     if not pwd_context.verify(password, user.password):
-        raise Unauthorization()
+        raise ValidateError()
     return user
 
 

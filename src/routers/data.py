@@ -2,10 +2,10 @@ import datetime
 from pydantic import BaseModel
 import sqlite3
 from fastapi import APIRouter, File, UploadFile
-import aiosqlite
-import aiofiles
+import asyncpg
+# import aiofiles
 from enum import Enum
-from ..exceptions import UploadFailed
+from ..exceptions import OperationFailed
 from ..settings import ValidTableName, get_insert_command
 import csv
 
@@ -17,6 +17,19 @@ data_router = APIRouter(
 
 @data_router.post("/upload/{table}")
 async def upload_data(table: ValidTableName, file: UploadFile, encoding: str = "utf-8"):
+    """上传数据
+
+    Args:
+        table (ValidTableName): 表名
+        file (UploadFile): 文件
+        encoding (str, optional): 文件编码. 默认为 "utf-8".
+
+    Raises:
+        UploadFailed: 上传文件失败异常
+
+    Returns:
+        _type_: _description_
+    """
     if table == ValidTableName.tbcell or table == ValidTableName.tbkpi or \
             table == ValidTableName.tbprb or table == ValidTableName.tbmordata:
         contents = await file.read()
