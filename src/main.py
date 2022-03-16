@@ -12,7 +12,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_oauth2_redirect_html,
 )
 from fastapi.staticfiles import StaticFiles
-
+from .settings import Settings
 app = FastAPI(docs_url=None, redoc_url=None)
 
 app.include_router(normal_router)
@@ -63,12 +63,17 @@ async def baseexception_handler(request, exception):
 """
 初始化
 """
-# @app.on_event("startup")
-# async def startup_pool():
-#     from .database import init_databasepool
-#     await init_databasepool()
-    
-
+@app.on_event("startup")
+async def create_temp_dir():
+    import os
+    tmp_path = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
+    if not os.path.exists(tmp_path):
+        os.mkdir(tmp_path)
+    else:
+        import glob
+        files = glob.glob(f'{tmp_path}/*')
+        for f in files:
+            os.remove(f)
 
 import uvicorn
 if __name__ == "__main__":

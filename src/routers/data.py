@@ -11,8 +11,8 @@ import asyncpg
 # import aiofiles
 from enum import Enum
 from ..exceptions import OperationFailed
-from ..settings import ValidUploadTableName, get_insert_command, Settings, transform_type
-from typing import Optional,Dict
+from ..settings import ValidTableName, ValidUploadTableName, get_insert_command, Settings, transform_type
+from typing import List, Optional,Dict
 import csv
 
 data_router = APIRouter(
@@ -101,8 +101,39 @@ def upload_status(id:str):
     if id in __upload_dict:
         return __upload_dict[id]
     raise fastapi.HTTPException(status_code=404, detail="Item not found")
+import os
 
+__download_dict = dict()
 
+@data_router.get("/download")
+async def download_table(table:ValidTableName):
+    """请求准备下载
+    """
+    table_name = table.name
+    connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+    tmp_path = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
+    if table_name in __download_dict:
+        for file in __download_dict[table_name]:
+            os.remove(f"{tmp_path}/{file}")
+    __download_dict[table_name] = []
+    async with connection.transaction():
+        count = await connection.fetchrow(f'SELECT COUNT(*) FROM "{table_name}"')
+        count = count["count"]
+        max_row = Settings.MAX_ROW_PER_FILE
+        for i in range(0,count,max_row):
+            id = uuid.uuid4().hex + ".csv"
+            command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{tmp_path}/{id}\' WITH (FORMAT CSV, HEADER);'
+            print(command)
+            await connection.execute(command)
+            __download_dict[table_name].append(id)
+    return ["/data/download/file/{}".format(file) for file in __download_dict[table_name]]
+from fastapi.responses import FileResponse
+
+@data_router.get("/download/file")
+async def download_table_file(id:str):
+    file =os.path.join("{}{}".format(os.getcwd(),Settings.TEMPDIR),id)
+    print(file)
+    return FileResponse(path=file,filename=id)
 class GetSectorEnocdeChoice(str, Enum):
     name = "name"
     id = "id"
