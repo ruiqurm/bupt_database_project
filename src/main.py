@@ -2,7 +2,8 @@
 # from dependency import authenticate_user, get_current_user
 from fastapi import FastAPI
 from .routers.users import user_router,normal_router,admin_router
-from .routers.data import data_router  
+from .routers.data import data_router
+from .routers.debug import debug_router
 from .exceptions import BaseException
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import (
@@ -18,6 +19,8 @@ app.include_router(normal_router)
 app.include_router(user_router)
 app.include_router(admin_router)
 app.include_router(data_router)
+app.include_router(debug_router)
+
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
