@@ -1,3 +1,4 @@
+from calendar import month
 import uuid
 from fastapi import BackgroundTasks
 import fastapi
@@ -191,23 +192,35 @@ async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date
         choice.value)
     return await fetch_all(command, name, start_time, end_time)
 
-# class GranularityChoice(Enum, str):
-#     a15min = "15min"
-#     a30min = "30min"
-#     hour = "hour"
+class GranularityChoice(str,Enum):
+    a15min = "15min"
+    hour = "hour"
 
 
-# @data_router.get("/prb")
-# def get_avg_prb_line_chart(enodeb_name: str, prbindex: int, granularity: GranularityChoice, from_time: datetime.datetime, to_time: datetime.datetime):
-#     """
-#     输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
-#     granularity : 粒度
-#     prbindex: 第几个prb
-#     enodeb_name: 网元名称
-#     """
-
-#     command = """
-#     SELECT StartTime,avg({}) from tbPRB where ENODEB_NAME = "{}"
-#     GROUP BY strftime("%s",substr(StartTime,7,4)||"-"|| substr(StartTime,1,2)||"-"|| substr(StartTime,4,2) ||  substr(StartTime,11,9)) / {};
-#     """
-#     pass
+@data_router.get("/prb/detail")
+async def get_avg_prb_line_chart(enodeb_name: str,granularity:GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
+    """
+    输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
+    granularity : 粒度
+    prbindex: 第几个prb
+    enodeb_name: 网元名称
+    """
+    if granularity == GranularityChoice.a15min:
+        command = f"""
+        SELECT "StartTime","AvgNoise{prbindex}" 
+        FROM  "tbPRB"
+        WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
+        """
+        return await fetch_all(command, enodeb_name, start_time, end_time)
+        
+    else:
+        connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+        await connection.execute("CALL update_tbprb_new();")
+        command = f"""
+        SELECT "StartTime","AvgNoise{prbindex}" 
+        FROM  "tbPRB"
+        WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
+        """
+        result = await fetch_all(command, enodeb_name, start_time, end_time,connection=connection)
+        await connection.close()
+        return  result
