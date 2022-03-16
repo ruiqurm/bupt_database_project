@@ -1,3 +1,7 @@
+import uuid
+from fastapi import BackgroundTasks
+import fastapi
+from ..utils import batch, fetch_all, fetch_one, fetch_one_then_wrap_model
 import datetime
 from pydantic import BaseModel
 import sqlite3
@@ -6,62 +10,102 @@ import asyncpg
 # import aiofiles
 from enum import Enum
 from ..exceptions import OperationFailed
-from ..settings import ValidTableName, get_insert_command
+from ..settings import ValidUploadTableName, get_insert_command, Settings, transform_type
+from typing import Optional,Dict
 import csv
 
 data_router = APIRouter(
-    prefix="/data",
+    prefix=f"{Settings.DATA_ROUTER_PREFIX}",
     tags=["data"],
 )
+class UploadTask(BaseModel):
+    id: str
+    done: bool = False
+    failed:bool = False
+    msg: str = ""
+    current_row: int = 0
+
+__upload_dict = dict()
 
 
-@data_router.post("/upload/{table}")
-async def upload_data(table: ValidTableName, file: UploadFile, encoding: str = "utf-8"):
+async def upload_data_background(id: str, reader: csv.reader, table_name: str, command: str, max_line: int):
+    """后台上传
+
+    Args:
+        reader (csv.reader): _description_
+        table_name (str): _description_
+        command (str): _description_
+    """
+    counter = 0
+    connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+    try:
+        async with connection.transaction():
+            for fifty_rows in batch(iter(reader), max_line):
+                # 没做触发器
+                counter += max_line
+                await connection.executemany(command, [transform_type(table_name, i) for i in fifty_rows])
+                # 直接共享内存，不考虑冲突
+                __upload_dict[id].current_row = counter
+    except Exception as e:
+        __upload_dict[id].msg = str(e)
+        __upload_dict[id].failed = True
+    finally:
+        __upload_dict[id].done = True
+
+
+
+
+
+@data_router.post("/upload")
+async def upload_data(table: ValidUploadTableName, file: UploadFile, background_tasks: BackgroundTasks, encoding: str = "utf-8", max_line: int = 50):
     """上传数据
 
     Args:
-        table (ValidTableName): 表名
+        table (ValidUploadTableName): 表名
         file (UploadFile): 文件
         encoding (str, optional): 文件编码. 默认为 "utf-8".
-
+        max_line: 一次最大操作行
     Raises:
         : 上传文件失败异常
 
     Returns:
         _type_: _description_
     """
-    if table == ValidTableName.tbcell or table == ValidTableName.tbkpi or \
-            table == ValidTableName.tbprb or table == ValidTableName.tbmordata:
-        contents = await file.read()
-        data = contents.decode(encoding).splitlines()
-        reader = csv.reader(data, delimiter=',', quotechar='"')
-        command = get_insert_command(table)
+    contents = await file.read()
+    data = contents.decode(encoding).splitlines()
+    reader = csv.reader(data, delimiter=',', quotechar='"')
+    command = get_insert_command(table)
 
-        async with aiosqlite.connect("./data.db") as db:
-            await db.execute("BEGIN")  # 开始事务
-            next(reader)
-            try:
-                for count, row in enumerate(reader):
-                    await db.execute(command, row)
-                await db.execute("COMMIT")
-                await db.commit()
-            except sqlite3.ProgrammingError as e:
-                raise UploadFailed("{}行: {}".format(count, str(e)))
-            except sqlite3.Error as e:
-                raise UploadFailed(str(e))
-            return "ok"
-    else:
-        raise
+    # 执行插入操作
+    next(reader)  # skip title
+    id = uuid.uuid4().hex
+    __upload_dict[id] = UploadTask(id=id)
+    background_tasks.add_task(upload_data_background,
+                              id, reader, table, command, max_line)
+
+    return {"id": id,"url":f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
+@data_router.get("/upload/status")
+def upload_status(id:str):
+    """获取上传状态
+
+    Args:
+        id (str): _description_
+
+    Raises:
+        fastapi.HTTPException: _description_
+
+    Returns:
+        _type_: _description_
+    """
+    if id in __upload_dict:
+        return __upload_dict[id]
+    raise fastapi.HTTPException(status_code=404, detail="Item not found")
 
 
 class GetSectorEnocdeChoice(str, Enum):
     name = "name"
     id = "id"
 
-
-class SectorOrEnocde(str, Enum):
-    sector = "sector"
-    enodeb = "enodeb"
 
 # @data_router.get("/{category}")
 # async def get_sector_list(category:SectorOrEnocde,choice: GetSectorEnocdeChoice):
@@ -84,7 +128,6 @@ class SectorOrEnocde(str, Enum):
 # 			else:
 # 				return []
 
-
 """
 enode和sector的数据查询
 """
@@ -98,8 +141,8 @@ class TbcellModel(BaseModel):
     enodeb_name: str
     earfcn: int
     pci: int
-    pss: str
-    sss: str
+    pss: Optional[str]
+    sss: Optional[str]
     tac: int
     vendor: str
     longitude: float
@@ -115,30 +158,38 @@ class TbcellModel(BaseModel):
         def alias_generator(x): return x.upper()
 
 
-@data_router.get("/{category}/detail")
-async def get_sector_detail(category: SectorOrEnocde, name_or_id: str, choice: GetSectorEnocdeChoice):
+@data_router.get("/sector/detail")
+async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     """
     输入(或下拉列表)小区id或名称，返回sector全部信息
     """
-    if category == SectorOrEnocde.sector and choice == GetSectorEnocdeChoice.name:
-        command = "SELECT * From tbCell WHERE SECTOR_NAME = ?"
-    elif category == SectorOrEnocde.sector and choice == GetSectorEnocdeChoice.id:
-        command = "SELECT * From tbCell WHERE SECTOR_ID = ?"
-    elif category == SectorOrEnocde.enodeb and choice == GetSectorEnocdeChoice.name:
-        command = "SELECT * From tbCell WHERE ENODEB_NAME = ?"
-    elif command == SectorOrEnocde.enodeb and choice == GetSectorEnocdeChoice.id:
-        command = "SELECT * From tbCell WHERE ENODEB_ID = ?"
-    else:
-        raise
-    async with aiosqlite.connect("./data.db") as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(command, (name_or_id,)) as cursor:
-            rows = await cursor.fetchone()
-            if rows:
-                return TbcellModel(**rows).dict()
-            else:
-                return {}
+    if choice == GetSectorEnocdeChoice.name:
+        command = 'SELECT * From "tbCell" WHERE "SECTOR_NAME" = $1;'
+    elif choice == GetSectorEnocdeChoice.id:
+        command = 'SELECT * From "tbCell" WHERE "SECTOR_ID" = $1;'
+    return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
 
+
+@data_router.get("/enodeb/detail")
+async def get_enodeb_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
+    if choice == GetSectorEnocdeChoice.name:
+        command = 'SELECT * From "tbCell" WHERE "ENODEB_NAME" = $1;'
+    elif choice == GetSectorEnocdeChoice.id:
+        command = 'SELECT * From "tbCell" WHERE "ENODEB_ID" = $1;'
+    return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
+
+
+class KPIChoice(str, Enum):
+    RCCConnSUCC = "RCCConnSUCC"
+    RCCConnATT = "RCCConnATT"
+    RCCConnRATE = "RCCConnRATE"
+
+
+@data_router.get("/kpi/detail")
+async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date, end_time: datetime.date):
+    command = 'SELECT "StartTime","{}" From "tbKPI" WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
+        choice.value)
+    return await fetch_all(command, name, start_time, end_time)
 
 # class GranularityChoice(Enum, str):
 #     a15min = "15min"
@@ -160,40 +211,3 @@ async def get_sector_detail(category: SectorOrEnocde, name_or_id: str, choice: G
 #     GROUP BY strftime("%s",substr(StartTime,7,4)||"-"|| substr(StartTime,1,2)||"-"|| substr(StartTime,4,2) ||  substr(StartTime,11,9)) / {};
 #     """
 #     pass
-
-
-db = sqlite3.connect("data.db")
-db.cursor().execute("""
-create table IF NOT EXISTS tbCell ( 
-"CITY" varchar(255),
-"SECTOR_ID" varchar(50), 
-"SECTOR_NAME" varchar(255), 
-"ENODEBID" int, 
-"ENODEB_NAME" varchar(255), 
-"EARFCN" int, 
-"PCI" int, 
-"PSS" int, 
-"SSS" int, 
-"TAC" int, 
-"VENDOR" varchar(255), 
-"LONGITUDE" float, 
-"LATITUDE" float, 
-"STYLE" varchar(255), 
-"AZIMUTH" float, 
-"HEIGHT" float, 
-"ELECTTILT" float, 
-"MECHTILT" float, 
-"TOTLETILT" float 
-); 
-""")
-db.cursor().execute("""
-create table IF NOT EXISTS tbPRB
-(
-"StartTime"  datetime,
-"ENODEB_NAME"  varchar(255),
-"SECTOR_DESCRIPTION"  varchar(255) not null,
-"SECTOR_NAME"  varchar(255),
-avg_noise0 float,avg_noise1 float,avg_noise2 float,avg_noise3 float,avg_noise4 float,avg_noise5 float,avg_noise6 float,avg_noise7 float,avg_noise8 float,avg_noise9 float,avg_noise10 float,avg_noise11 float,avg_noise12 float,avg_noise13 float,avg_noise14 float,avg_noise15 float,avg_noise16 float,avg_noise17 float,avg_noise18 float,avg_noise19 float,avg_noise20 float,avg_noise21 float,avg_noise22 float,avg_noise23 float,avg_noise24 float,avg_noise25 float,avg_noise26 float,avg_noise27 float,avg_noise28 float,avg_noise29 float,avg_noise30 float,avg_noise31 float,avg_noise32 float,avg_noise33 float,avg_noise34 float,avg_noise35 float,avg_noise36 float,avg_noise37 float,avg_noise38 float,avg_noise39 float,avg_noise40 float,avg_noise41 float,avg_noise42 float,avg_noise43 float,avg_noise44 float,avg_noise45 float,avg_noise46 float,avg_noise47 float,avg_noise48 float,avg_noise49 float,avg_noise50 float,avg_noise51 float,avg_noise52 float,avg_noise53 float,avg_noise54 float,avg_noise55 float,avg_noise56 float,avg_noise57 float,avg_noise58 float,avg_noise59 float,avg_noise60 float,avg_noise61 float,avg_noise62 float,avg_noise63 float,avg_noise64 float,avg_noise65 float,avg_noise66 float,avg_noise67 float,avg_noise68 float,avg_noise69 float,avg_noise70 float,avg_noise71 float,avg_noise72 float,avg_noise73 float,avg_noise74 float,avg_noise75 float,avg_noise76 float,avg_noise77 float,avg_noise78 float,avg_noise79 float,avg_noise80 float,avg_noise81 float,avg_noise82 float,avg_noise83 float,avg_noise84 float,avg_noise85 float,avg_noise86 float,avg_noise87 float,avg_noise88 float,avg_noise89 float,avg_noise90 float,avg_noise91 float,avg_noise92 float,avg_noise93 float,avg_noise94 float,avg_noise95 float,avg_noise96 float,avg_noise97 float,avg_noise98 float,avg_noise99 float
-);
-""")
-db.commit()
