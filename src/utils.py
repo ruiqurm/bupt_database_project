@@ -25,6 +25,10 @@ def batch(it: Iterator, size):
     return iter(lambda: tuple(islice(it, size)), ())
 
 
+async def get_connection() -> asyncpg.Connection:
+    return await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE, host="127.0.0.1")
+
+
 async def fetch_one(command: str, *args, connection: Union[None, asyncpg.Connection] = None) -> asyncpg.Record:
     """获取一条
     如果提供connection，不会关闭连接
@@ -36,7 +40,7 @@ async def fetch_one(command: str, *args, connection: Union[None, asyncpg.Connect
         asyncpg.Record: _description_
     """
     if connection is None:
-        connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+        connection = await get_connection()
         result = await connection.fetchrow(command, *args)
         await connection.close()
     else:
@@ -56,7 +60,7 @@ async def fetch_all(command: str, *args, connection: Union[None, asyncpg.Connect
         List[asyncpg.Record]: _description_
     """
     if connection is None:
-        connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+        connection = get_connection()
         result = await connection.fetch(command, *args)
         await connection.close()
     else:
@@ -66,7 +70,7 @@ R = TypeVar('R')
 
 
 async def fetch_one_then_wrap_model(command: str, model: Callable[[TypedDict], R], *args) -> Union[R, None]:
-    connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+    connection = await get_connection()
     result = await connection.fetchrow(command, *args)
     await connection.close()
     if result is not None:

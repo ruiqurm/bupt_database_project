@@ -2,7 +2,7 @@ from calendar import month
 import uuid
 from fastapi import BackgroundTasks
 import fastapi
-from ..utils import batch, fetch_all, fetch_one, fetch_one_then_wrap_model
+from ..utils import batch, fetch_all, fetch_one, fetch_one_then_wrap_model, get_connection
 import datetime
 from pydantic import BaseModel
 import sqlite3
@@ -38,7 +38,7 @@ async def upload_data_background(id: str, reader: csv.reader, table_name: str, c
         command (str): _description_
     """
     counter = 0
-    connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+    connection = await get_connection()
     try:
         async with connection.transaction():
             for fifty_rows in batch(iter(reader), max_line):
@@ -110,7 +110,7 @@ async def download_table(table:ValidTableName):
     """请求准备下载
     """
     table_name = table.name
-    connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+    connection = await get_connection()
     tmp_path = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
     if table_name in __download_dict:
         for file in __download_dict[table_name]:
@@ -245,7 +245,7 @@ async def get_avg_prb_line_chart(enodeb_name: str,granularity:GranularityChoice,
         return await fetch_all(command, enodeb_name, start_time, end_time)
         
     else:
-        connection = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
+        connection = await get_connection()
         await connection.execute("CALL update_tbprb_new();")
         command = f"""
         SELECT "StartTime","AvgNoise{prbindex}" 
