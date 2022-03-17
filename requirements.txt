@@ -1,0 +1,6 @@
+asyncpg == 0.25.0
+fastapi == 0.74.1
+uvicorn == 0.17.5
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart == 0.0.5

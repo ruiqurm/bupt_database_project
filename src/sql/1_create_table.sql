@@ -15,8 +15,7 @@ tbCell
 CONSTRAINT TOTLETILT_VALUE CHECK("TOTLETILT" = "ELECTTILT" + "MECHTILT")
 
 */
-
-create table "tbCell" ( 
+CREATE TABLE IF NOT EXISTS table "tbCell" ( 
 "CITY" varchar(255),
 "SECTOR_ID" varchar(50) PRIMARY KEY, 
 "SECTOR_NAME" varchar(255) NOT NULL, 
@@ -44,7 +43,7 @@ CONSTRAINT LATITUDE_RANGE check("LATITUDE" BETWEEN -90 AND 90)
 /*
 tbMRO
 */
-CREATE TABLE "tbMROData" (
+CREATE TABLE IF NOT EXISTS "tbMROData" (
 "TimeStamp" varchar(255) ,
 "ServingSector" varchar(255) ,
 "InterferingSector" varchar(255) ,
@@ -57,7 +56,7 @@ CREATE TABLE "tbMROData" (
 /*
 tbKPI
 */
-CREATE TABLE "tbKPI" (    
+CREATE TABLE IF NOT EXISTS "tbKPI" (    
 "StartTime" date,
 "ENODEB_NAME" varchar(255),
 "SECTOR_DESCRIPTION" varchar(255) NOT NULL,
@@ -70,7 +69,7 @@ CREATE TABLE "tbKPI" (
 /*
 tbPRB
 */
-create table"tbPRB"
+CREATE TABLE IF NOT EXISTS "tbPRB"
 (
 "StartTime" timestamp,
 "ENODEB_NAME"  varchar(255),

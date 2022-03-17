@@ -60,6 +60,13 @@ async def baseexception_handler(request, exception):
         "message": exception.detail
     }, status_code = exception.status_code)
 
+from fastapi import Request
+@app.post("/test")
+async def sss(request: Request):
+    """测试
+    """
+    d = await request.body()
+    return {"code": 0, "message": "success"}
 """
 初始化
 """
