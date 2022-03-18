@@ -11,8 +11,15 @@ pip install -r requirements.txt
 ## 创建表
 在项目根目录下
 ```powershell
+createdb.exe tb
 psql.exe -U postgres -d tb -f "src\sql\1_create_table.sql" 
 psql.exe -U postgres -d tb -f "src\sql\3_create_table.sql" 
+```
+或者
+```shell
+createdb tb
+psql -U postgres -d tb -f "src/sql/1_create_table.sql" 
+psql -U postgres -d tb -f "src/sql/3_create_table.sql" 
 ```
 
 # 启动server

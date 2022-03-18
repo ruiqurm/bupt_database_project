@@ -1,14 +1,16 @@
 import datetime
 from enum import Enum
 import re
+import json
+
 
 
 class Settings:
 	"""
 	Databse
 	"""
-	DEFAULT_USER = "postgres"
-	DEFAULT_PASSWORD = None
+	DATABASE_USER = "postgres"
+	DATABASE_PASSWORD = None
 	DEFAULT_DATABASE = "tb"
 
 	"""
@@ -34,7 +36,7 @@ class Settings:
 	"""
 	DATA_ROUTER_PREFIX = "/data"
 
-	MAX_ROW_PER_FILE = 1000
+	MAX_ROW_PER_FILE = 50000
 	TEMPDIR ="/.tmp"
 class ValidUploadTableName(str, Enum):
     tbCell = "tbcell"
@@ -98,3 +100,13 @@ def transform_type(table_name: ValidUploadTableName, row: list) -> list:
         for i, pattern in change["date"]:
             row[i] = datetime.datetime.strptime(row[i], pattern)
     return row
+
+try:
+    _config = json.load(open("config.json"))
+except FileNotFoundError:
+    print("缺少数据库配置文件，默认按照user=postgres连接")
+    Settings.DATABASE_USER = "postgres"
+    Settings.DATABASE_PASSWORD = None
+else:
+    Settings.DATABASE_USER = _config.get("username", "postgres")
+    Settings.DATABASE_PASSWORD = _config.get("password", None)

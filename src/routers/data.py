@@ -123,7 +123,7 @@ async def download_table(table:ValidTableName):
         for i in range(0,count,max_row):
             id = uuid.uuid4().hex + ".csv"
             command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{tmp_path}/{id}\' WITH (FORMAT CSV, HEADER);'
-            print(command)
+            # print(command)
             await connection.execute(command)
             __download_dict[table_name].append(id)
     return ["/data/download/file/{}".format(file) for file in __download_dict[table_name]]
