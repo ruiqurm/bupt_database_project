@@ -21,7 +21,14 @@ createdb tb
 psql -U postgres -d tb -f "src/sql/1_create_table.sql" 
 psql -U postgres -d tb -f "src/sql/3_create_table.sql" 
 ```
-
+## 配置数据库
+目录下新建`config.json`:
+```json
+{
+	"username":"postgres",
+	"password":"password"
+}
+```
 # 启动server
 在项目根目录下
 ```powershell
