@@ -2,6 +2,7 @@ import datetime
 from enum import Enum
 import re
 import json
+import platform
 
 
 
@@ -37,7 +38,7 @@ class Settings:
 	DATA_ROUTER_PREFIX = "/data"
 
 	MAX_ROW_PER_FILE = 50000
-	TEMPDIR ="/.tmp"
+	TEMPDIR ="/.tb"
 class ValidUploadTableName(str, Enum):
     tbCell = "tbcell"
     tbKPI = "tbkpi"
@@ -110,3 +111,10 @@ except FileNotFoundError:
 else:
     Settings.DATABASE_USER = _config.get("username", "postgres")
     Settings.DATABASE_PASSWORD = _config.get("password", None)
+
+
+if(platform.system()=='Windows'):
+    import os
+    Settings.TEMPDIR = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
+else:
+    Settings.TEMPDIR = "{}{}".format("/tmp",Settings.TEMPDIR)

@@ -7,7 +7,6 @@ import datetime
 from pydantic import BaseModel
 import sqlite3
 from fastapi import APIRouter, File, UploadFile
-import asyncpg
 # import aiofiles
 from enum import Enum
 from ..exceptions import OperationFailed
@@ -111,10 +110,9 @@ async def download_table(table:ValidTableName):
     """
     table_name = table.name
     connection = await get_connection()
-    tmp_path = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
     if table_name in __download_dict:
         for file in __download_dict[table_name]:
-            os.remove(f"{tmp_path}/{file}")
+            os.remove(f"{Settings.TEMPDIR}/{file}")
     __download_dict[table_name] = []
     async with connection.transaction():
         count = await connection.fetchrow(f'SELECT COUNT(*) FROM "{table_name}"')
@@ -122,17 +120,16 @@ async def download_table(table:ValidTableName):
         max_row = Settings.MAX_ROW_PER_FILE
         for i in range(0,count,max_row):
             id = uuid.uuid4().hex + ".csv"
-            command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{tmp_path}/{id}\' WITH (FORMAT CSV, HEADER);'
+            command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{Settings.TEMPDIR}/{id}\' WITH (FORMAT CSV, HEADER);'
             # print(command)
             await connection.execute(command)
             __download_dict[table_name].append(id)
-    return ["/data/download/file/{}".format(file) for file in __download_dict[table_name]]
+    return ["/data/download/file?id={}".format(file) for file in __download_dict[table_name]]
 from fastapi.responses import FileResponse
 
 @data_router.get("/download/file")
 async def download_table_file(id:str):
-    file =os.path.join("{}{}".format(os.getcwd(),Settings.TEMPDIR),id)
-    print(file)
+    file = os.path.join(Settings.TEMPDIR, id)
     return FileResponse(path=file,filename=id)
 class GetSectorEnocdeChoice(str, Enum):
     name = "name"
