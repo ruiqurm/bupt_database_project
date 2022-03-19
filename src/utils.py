@@ -26,7 +26,7 @@ def batch(it: Iterator, size):
 
 
 async def get_connection() -> asyncpg.Connection:
-    return await asyncpg.connect(user=Settings.DEFAULT_USER, password=Settings.DEFAULT_PASSWORD, database=Settings.DEFAULT_DATABASE, host="127.0.0.1")
+    return await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE, host="127.0.0.1")
 
 
 async def fetch_one(command: str, *args, connection: Union[None, asyncpg.Connection] = None) -> asyncpg.Record:

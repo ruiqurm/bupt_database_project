@@ -8,8 +8,8 @@ class Settings:
 	Databse
 	"""
 	DEFAULT_USER = "postgres"
-	DEFAULT_PASSWORD = "ry010819"
-	DEFAULT_DATABASE = "tb"
+	DEFAULT_PASSWORD = None
+	DEFAULT_DATABASE = "postgres"
 
 	"""
 	User Rule
