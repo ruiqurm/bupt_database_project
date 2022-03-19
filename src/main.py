@@ -66,14 +66,16 @@ async def baseexception_handler(request, exception):
 @app.on_event("startup")
 async def create_temp_dir():
     import os
-    tmp_path = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
-    if not os.path.exists(tmp_path):
-        os.mkdir(tmp_path)
+    from pathlib import Path
+
+    if not os.path.exists(Settings.TEMPDIR):
+        os.mkdir(Settings.TEMPDIR)
     else:
         import glob
-        files = glob.glob(f'{tmp_path}/*')
+        files = glob.glob(f'{Settings.TEMPDIR}/*')
         for f in files:
             os.remove(f)
+    Path(Settings.TEMPDIR).chmod(0o777)
 
 import uvicorn
 if __name__ == "__main__":
