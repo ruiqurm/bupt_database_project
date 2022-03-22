@@ -5,57 +5,64 @@ import json
 import platform
 
 
-
 class Settings:
-	"""
-	Databse
-	"""
-	DATABASE_USER = "postgres"
-	DATABASE_PASSWORD = None
-	DEFAULT_DATABASE = "tb"
+    """
+    Databse
+    """
+    DATABASE_USER = "postgres"
+    DATABASE_PASSWORD = None
+    DEFAULT_DATABASE = "tb"
 
-	"""
+    """
 	User Rule
 	"""
-	USERNAME_MAX_LENGTH = 32
-	USERNAME_MIN_LENGTH = 4
-	PASSWORD_MAX_LENGTH = 16
-	PASSWORD_MIN_LENGTH = 8
-	USERNAME_RULE = re.compile("^[a-zA-Z\d\!@#$%\^&\*\(\)~`,.;'\x20]*$")
-	PASSWORD_RULE = re.compile("^[a-zA-Z\d\!@#$%\^&\*\(\)~`,.;'\x20]*$")
+    USERNAME_MAX_LENGTH = 32
+    USERNAME_MIN_LENGTH = 4
+    PASSWORD_MAX_LENGTH = 16
+    PASSWORD_MIN_LENGTH = 8
+    USERNAME_RULE = re.compile("^[a-zA-Z\d\!@#$%\^&\*\(\)~`,.;'\x20]*$")
+    PASSWORD_RULE = re.compile("^[a-zA-Z\d\!@#$%\^&\*\(\)~`,.;'\x20]*$")
 
-	"""
+    """
 	User Token
 	"""
-	SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-	ALGORITHM = "HS256"
-	ACCESS_TOKEN_EXPIRE_MINUTES = 720  # 12小时
-	PAYLOAD_NAME = "bupt"
+    SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+    ALGORITHM = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES = 720  # 12小时
+    PAYLOAD_NAME = "bupt"
 
-	"""
+    """
 	Router
 	"""
-	DATA_ROUTER_PREFIX = "/data"
+    DATA_ROUTER_PREFIX = "/data"
 
-	MAX_ROW_PER_FILE = 50000
-	TEMPDIR ="/.tb"
+    MAX_ROW_PER_FILE = 50000
+    TEMPDIR = "/.tb"
+
+
 class ValidUploadTableName(str, Enum):
     tbCell = "tbcell"
     tbKPI = "tbkpi"
     tbPRB = "tbprb"
     tbMROData = "tbmordata"
+    tbC2I = "tbc2i"
+
+
 class ValidTableName(str, Enum):
-	tbCell = "tbcell"
-	tbKPI = "tbkpi"
-	tbPRB = "tbprb"
-	tbMROData = "tbmordata"
-	tbPRBnew = "tbprb"
+    tbCell = "tbcell"
+    tbKPI = "tbkpi"
+    tbPRB = "tbprb"
+    tbMROData = "tbmordata"
+    tbPRBnew = "tbprb"
+    tbC2I = "tbc2i"
+
 
 __column_count = {
     "tbCell": 19,
     "tbPRB": 104,
     "tbKPI": 7,
     "tbMROData": 7,
+    "tbC2I": 8
 }
 
 __type_change = {
@@ -72,7 +79,10 @@ __type_change = {
     "tbPRB": {
         "date": ((0, "%m/%d/%Y %H:%M:%S"),),
         "int": range(4, 104),
-    }
+    },
+    "tbC2I": {
+        "float": range(3, 8)
+    },
 }
 
 
@@ -102,6 +112,7 @@ def transform_type(table_name: ValidUploadTableName, row: list) -> list:
             row[i] = datetime.datetime.strptime(row[i], pattern)
     return row
 
+
 try:
     _config = json.load(open("config.json"))
 except FileNotFoundError:
@@ -113,8 +124,8 @@ else:
     Settings.DATABASE_PASSWORD = _config.get("password", None)
 
 
-if(platform.system()=='Windows'):
+if(platform.system() == 'Windows'):
     import os
-    Settings.TEMPDIR = "{}{}".format(os.getcwd(),Settings.TEMPDIR)
+    Settings.TEMPDIR = "{}{}".format(os.getcwd(), Settings.TEMPDIR)
 else:
-    Settings.TEMPDIR = "{}{}".format("/tmp",Settings.TEMPDIR)
+    Settings.TEMPDIR = "{}{}".format("/tmp", Settings.TEMPDIR)
