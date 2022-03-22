@@ -1,3 +1,6 @@
+import os
+from ..pylouvain import PyLouvain, in_order
+from fastapi.responses import FileResponse
 from calendar import month
 import uuid
 from fastapi import BackgroundTasks
@@ -11,19 +14,22 @@ from fastapi import APIRouter, File, UploadFile
 from enum import Enum
 from ..exceptions import OperationFailed
 from ..settings import ValidTableName, ValidUploadTableName, get_insert_command, Settings, transform_type
-from typing import List, Optional,Dict
+from typing import List, Optional, Dict
 import csv
 
 data_router = APIRouter(
     prefix=f"{Settings.DATA_ROUTER_PREFIX}",
     tags=["data"],
 )
+
+
 class UploadTask(BaseModel):
     id: str
     done: bool = False
-    failed:bool = False
+    failed: bool = False
     msg: str = ""
     current_row: int = 0
+
 
 __upload_dict = dict()
 
@@ -44,16 +50,12 @@ async def upload_data_background(id: str, reader: csv.reader, table_name: str, c
                 # 没做触发器
                 counter += max_line
                 await connection.executemany(command, [transform_type(table_name, i) for i in fifty_rows])
-                # 直接共享内存，不考虑冲突
                 __upload_dict[id].current_row = counter
     except Exception as e:
         __upload_dict[id].msg = str(e)
         __upload_dict[id].failed = True
     finally:
         __upload_dict[id].done = True
-
-
-
 
 
 @data_router.post("/upload")
@@ -73,6 +75,7 @@ async def upload_data(table: ValidUploadTableName, file: UploadFile, background_
     """
     contents = await file.read()
     data = contents.decode(encoding).splitlines()
+    # file.file._file = io.TextIOBase(file.file._file,encoding="utf-8")
     reader = csv.reader(data, delimiter=',', quotechar='"')
     command = get_insert_command(table)
 
@@ -83,9 +86,11 @@ async def upload_data(table: ValidUploadTableName, file: UploadFile, background_
     background_tasks.add_task(upload_data_background,
                               id, reader, table, command, max_line)
 
-    return {"id": id,"url":f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
+    return {"id": id, "url": f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
+
+
 @data_router.get("/upload/status")
-def upload_status(id:str):
+def upload_status(id: str):
     """获取上传状态
 
     Args:
@@ -100,12 +105,13 @@ def upload_status(id:str):
     if id in __upload_dict:
         return __upload_dict[id]
     raise fastapi.HTTPException(status_code=404, detail="Item not found")
-import os
+
 
 __download_dict = dict()
 
+
 @data_router.get("/download")
-async def download_table(table:ValidTableName):
+async def download_table(table: ValidTableName):
     """请求准备下载
     """
     table_name = table.name
@@ -118,19 +124,21 @@ async def download_table(table:ValidTableName):
         count = await connection.fetchrow(f'SELECT COUNT(*) FROM "{table_name}"')
         count = count["count"]
         max_row = Settings.MAX_ROW_PER_FILE
-        for i in range(0,count,max_row):
+        for i in range(0, count, max_row):
             id = uuid.uuid4().hex + ".csv"
             command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{Settings.TEMPDIR}/{id}\' WITH (FORMAT CSV, HEADER);'
             # print(command)
             await connection.execute(command)
             __download_dict[table_name].append(id)
     return ["/data/download/file?id={}".format(file) for file in __download_dict[table_name]]
-from fastapi.responses import FileResponse
+
 
 @data_router.get("/download/file")
-async def download_table_file(id:str):
+async def download_table_file(id: str):
     file = os.path.join(Settings.TEMPDIR, id)
-    return FileResponse(path=file,filename=id)
+    return FileResponse(path=file, filename=id)
+
+
 class GetSectorEnocdeChoice(str, Enum):
     name = "name"
     id = "id"
@@ -220,13 +228,14 @@ async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date
         choice.value)
     return await fetch_all(command, name, start_time, end_time)
 
-class GranularityChoice(str,Enum):
+
+class GranularityChoice(str, Enum):
     a15min = "15min"
     hour = "hour"
 
 
 @data_router.get("/prb/detail")
-async def get_avg_prb_line_chart(enodeb_name: str,granularity:GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
+async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
     """
     输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
     granularity : 粒度
@@ -240,7 +249,7 @@ async def get_avg_prb_line_chart(enodeb_name: str,granularity:GranularityChoice,
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
         return await fetch_all(command, enodeb_name, start_time, end_time)
-        
+
     else:
         connection = await get_connection()
         await connection.execute("CALL update_tbprb_new();")
@@ -249,6 +258,52 @@ async def get_avg_prb_line_chart(enodeb_name: str,granularity:GranularityChoice,
         FROM  "tbPRB"
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
-        result = await fetch_all(command, enodeb_name, start_time, end_time,connection=connection)
+        result = await fetch_all(command, enodeb_name, start_time, end_time, connection=connection)
         await connection.close()
-        return  result
+        return result
+
+
+async def get_tbCell_pos():
+    command = """
+        select "SECTOR_ID","LONGITUDE","LATITUDE" from "tbCell";
+    """
+    pbCelldata = await fetch_all(command)
+    ret = dict()
+    for row in pbCelldata:
+        ret[row["SECTOR_ID"]] = (row["LONGITUDE"], row["LATITUDE"])
+    return ret
+
+
+@data_router.get("/diagram")
+async def network_interference_structure_diagram():
+    """
+    返回网络干扰结构图
+    q 表示模块度
+    """
+    command = """
+        SELECT "SCELL","NCELL","C2I_Mean"
+        FROM  "tbC2I";
+        """
+    results = await fetch_all(command)
+    pos = await get_tbCell_pos()
+    nodes = {}
+    edges = []
+    for line in results:
+        n1 = line["SCELL"]
+        n2 = line["NCELL"]
+        nodes[n1] = 1
+        nodes[n2] = 1
+        w = float(line["C2I_Mean"])
+        edges.append(((n1, n2), w))
+    nodes_, edges_ = in_order(nodes, edges)
+    pyl = PyLouvain(nodes_, edges_)
+    # node_dict = pyl.node_dict
+    # reverse_node_dict = dict(zip(node_dict.values(), node_dict.keys()))
+    partition, q = pyl.apply_method()
+    # print(partition)
+    print("模块度：", q)
+    return {
+        "nodes": [{"id": index, "lng": pos[node][0], "lat":pos[node][1]} for index, node in enumerate(nodes)],
+        "partition": partition,
+        "q": q,
+    }
