@@ -4,6 +4,8 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Any,Optional,Dict
 from datetime import datetime, timedelta
+
+from src.utils import fetch_all, fetch_one
 from .user import UserInDB
 from .exceptions import NoSuchUser,InactiveUser,Unauthorization, ValidateError
 from jose import jwt
@@ -29,9 +31,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 async def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
-    con = await asyncpg.connect(user='postgres', database="tb")
-    user = await con.fetchrow('SELECT * FROM "USER" WHERE "username"= $1',username)
-    await con.close()
+    user = await fetch_one('SELECT * FROM "USER" WHERE "username" = $1',username)
     if user is None:
         raise NoSuchUser()
     user: UserInDB = UserInDB(**user)

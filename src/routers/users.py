@@ -3,6 +3,8 @@
 """
 from fastapi import Request
 from fastapi.security import OAuth2PasswordRequestForm
+
+from src.utils import fetch_all, fetch_one
 from ..user import UserIn, User
 from ..exceptions import OperationFailed
 from ..user_token import Token, authenticate_user, get_password_hash, create_access_token
@@ -32,6 +34,7 @@ admin_router = APIRouter(
 @normal_router.post("/register")
 async def register(user: UserIn):
     """注册用户
+    密码要8位
 
     Args:
         user (UserIn): 注册表单，JSON格式
@@ -40,16 +43,14 @@ async def register(user: UserIn):
         CreateFailed: 注册失败异常
 
     Returns:
-        None: 注册成功
+        User: 注册成功的用户
     """
     user.password = get_password_hash(user.password)
     try:
-        con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-        await con.execute('INSERT INTO "USER" ("username", "password") VALUES ($1,$2)', user.username, user.password)
-        await con.close()
+        await fetch_one('INSERT INTO "USER" ("username", "password") VALUES ($1,$2)',user.username, user.password)
     except asyncpg.PostgresError as e:
         raise OperationFailed()
-    return {}
+    return User(** await fetch_one('SELECT * FROM "USER" WHERE "username"= $1',user.username))
 
 
 @normal_router.post("/token", response_model=Token)
@@ -103,9 +104,7 @@ async def get_users():
     Returns:
         List[User]: 所有用户的信息
     """
-    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-    users = await con.fetch('SELECT * FROM "USER"')
-    await con.close()
+    users = await fetch_all('SELECT * FROM "USER"')
     return [User(**user) for user in users]
 
 
@@ -117,9 +116,8 @@ async def grant_user_as_admin(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-    await con.execute('UPDATE "USER" SET is_admin = true WHERE id = $1', userid)
-    await con.close()
+    await fetch_one('UPDATE "USER" SET is_admin = true WHERE id = $1',userid)
+    return "ok"
 
 
 @admin_router.delete("/administrator/{userid}")
@@ -130,10 +128,8 @@ async def revoke_user_as_admin(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-    await con.execute('UPDATE "USER" SET is_admin = false WHERE id = $1', userid)
-    await con.close()
-
+    await fetch_one('UPDATE "USER" SET is_admin = false WHERE id = $1', userid)
+    return "ok"
 
 @admin_router.post("/active/{userid}")
 async def activate_user(userid: int):
@@ -143,10 +139,8 @@ async def activate_user(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-    await con.execute('UPDATE "USER" SET is_active = true WHERE id = $1', userid)
-    await con.close()
-
+    await fetch_one('UPDATE "USER" SET is_active = true WHERE id = $1', userid)
+    return "ok"
 
 @admin_router.delete("/active/{userid}")
 async def deactivate_user(userid: int):
@@ -156,6 +150,5 @@ async def deactivate_user(userid: int):
     Args:
         userid (int): 用户id
     """
-    con = await asyncpg.connect(user=Settings.DEFAULT_USER, database=Settings.DEFAULT_DATABASE)
-    await con.execute('UPDATE "USER" SET is_active = false WHERE id = $1', userid)
-    await con.close()
+    await fetch_one('UPDATE "USER" SET is_active = false WHERE id = $1', userid)
+    return "ok"
