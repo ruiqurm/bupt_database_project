@@ -42,7 +42,7 @@ async def asadmin(id:int):
 
 	"""
 	try:
-		fetch_one('update "USER" set "is_admin" = true,"is_active"= true where "id" = $1',id)
+		await fetch_one('update "USER" set "is_admin" = true,"is_active"= true where "id" = $1',id)
 		return "ok"
 	except Exception as e:
 		return e
