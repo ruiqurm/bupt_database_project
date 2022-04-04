@@ -1,2 +1,2 @@
 .venv/Scripts/activate
-uvicorn src.main:app --reload 
+python -m src.main
