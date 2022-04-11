@@ -3,6 +3,9 @@ from enum import Enum
 import re
 import json
 import platform
+from statistics import mode
+
+from src import model
 
 
 class Settings:
@@ -57,60 +60,64 @@ class ValidTableName(str, Enum):
     tbC2I = "tbc2i"
 
 
-__column_count = {
-    "tbCell": 19,
-    "tbPRB": 104,
-    "tbKPI": 7,
-    "tbMROData": 7,
-    "tbC2I": 8
+str2Model = {
+    key:value for key,value in vars(model).items() if key.startswith("tb")
 }
 
-__type_change = {
-    "tbCell": {
-        "int": (3, 5, 6, 9),
-        "float": (11, 12, 14, 15, 16, 17, 18),
-        "none": (7, 8)
-    },
-    "tbKPI": {
-        "int": (4, 5),
-        "float": (6,),
-        "date": ((0, "%m/%d/%Y %H:%M:%S"),),
-    },
-    "tbPRB": {
-        "date": ((0, "%m/%d/%Y %H:%M:%S"),),
-        "int": range(4, 104),
-    },
-    "tbC2I": {
-        "float": range(3, 8)
-    },
-}
+# __column_count = {
+#     "tbCell": 19,
+#     "tbPRB": 104,
+#     "tbKPI": 7,
+#     "tbMROData": 7,
+#     "tbC2I": 8
+# }
+
+# __type_change = {
+#     "tbCell": {
+#         "int": (3, 5, 6, 9),
+#         "float": (11, 12, 14, 15, 16, 17, 18),
+#         "none": (7, 8)
+#     },
+#     "tbKPI": {
+#         "int": (4, 5),
+#         "float": (6,),
+#         "date": ((0, "%m/%d/%Y %H:%M:%S"),),
+#     },
+#     "tbPRB": {
+#         "date": ((0, "%m/%d/%Y %H:%M:%S"),),
+#         "int": range(4, 104),
+#     },
+#     "tbC2I": {
+#         "float": range(3, 8)
+#     },
+# }
 
 
-def get_insert_command(table_name: ValidUploadTableName):
-    return "INSERT INTO \"{}\" VALUES ({});".format(table_name.name, ",".join([f"${i}" for i in range(1, __column_count[table_name.name]+1)]))
+# def get_insert_command(table_name: ValidUploadTableName):
+#     return "INSERT INTO \"{}\" VALUES ({});".format(table_name.name, ",".join([f"${i}" for i in range(1, __column_count[table_name.name]+1)]))
 
 
-def transform_type(table_name: ValidUploadTableName, row: list) -> list:
-    change = __type_change[table_name.name]
-    if "int" in change:
-        for i in change["int"]:
-            try:
-                row[i] = int(row[i])
-            except:
-                row[i] = None
-    if "float" in change:
-        for i in change["float"]:
-            try:
-                row[i] = float(row[i])
-            except:
-                row[i] = None
-    if "none" in change:
-        for i in change["none"]:
-            row[i] = None
-    if "date" in change:
-        for i, pattern in change["date"]:
-            row[i] = datetime.datetime.strptime(row[i], pattern)
-    return row
+# def transform_type(table_name: ValidUploadTableName, row: list) -> list:
+#     change = __type_change[table_name.name]
+#     if "int" in change:
+#         for i in change["int"]:
+#             try:
+#                 row[i] = int(row[i])
+#             except:
+#                 row[i] = None
+#     if "float" in change:
+#         for i in change["float"]:
+#             try:
+#                 row[i] = float(row[i])
+#             except:
+#                 row[i] = None
+#     if "none" in change:
+#         for i in change["none"]:
+#             row[i] = None
+#     if "date" in change:
+#         for i, pattern in change["date"]:
+#             row[i] = datetime.datetime.strptime(row[i], pattern)
+#     return row
 
 
 try:

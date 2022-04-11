@@ -1,4 +1,6 @@
 import os
+
+from src.model import tbC2I, tbCell, tbKPI, tbMROData
 from ..pylouvain import PyLouvain, in_order
 from fastapi.responses import FileResponse
 from calendar import month
@@ -10,11 +12,9 @@ import datetime
 from pydantic import BaseModel
 import sqlite3
 from fastapi import APIRouter, File, UploadFile
-# import aiofiles
 from enum import Enum
-from ..exceptions import OperationFailed
-from ..settings import ValidTableName, ValidUploadTableName, get_insert_command, Settings, transform_type
-from typing import List, Optional, Dict
+from ..settings import ValidTableName, ValidUploadTableName, str2Model, Settings 
+from typing import List, Optional, Dict, Union
 import csv
 
 data_router = APIRouter(
@@ -34,7 +34,7 @@ class UploadTask(BaseModel):
 __upload_dict = dict()
 
 
-async def upload_data_background(id: str, reader: csv.reader, table_name: str, command: str, max_line: int):
+async def upload_data_background(id: str, reader: csv.reader,model:Union[tbCell,tbC2I,tbKPI,tbMROData], max_line: int):
     """后台上传
 
     Args:
@@ -45,11 +45,12 @@ async def upload_data_background(id: str, reader: csv.reader, table_name: str, c
     counter = 0
     connection = await get_connection()
     try:
+        command = model.get_insert_command()
         async with connection.transaction():
             for fifty_rows in batch(iter(reader), max_line):
                 # 没做触发器
                 counter += max_line
-                await connection.executemany(command, [transform_type(table_name, i) for i in fifty_rows])
+                await connection.executemany(command, [model.from_tuple(i).to_tuple() for i in fifty_rows])
                 __upload_dict[id].current_row = counter
     except Exception as e:
         __upload_dict[id].msg = str(e)
@@ -78,14 +79,13 @@ async def upload_data(name: ValidUploadTableName, file: UploadFile, background_t
     data = contents.decode(encoding).splitlines()
     # file.file._file = io.TextIOBase(file.file._file,encoding="utf-8")
     reader = csv.reader(data, delimiter=',', quotechar='"')
-    command = get_insert_command(table)
 
     # 执行插入操作
     next(reader)  # skip title
     id = uuid.uuid4().hex
     __upload_dict[id] = UploadTask(id=id)
     background_tasks.add_task(upload_data_background,
-                              id, reader, table, command, max_line)
+                              id, reader,str2Model[name.name], max_line)
 
     return {"id": id, "url": f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
 
