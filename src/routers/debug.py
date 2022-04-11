@@ -26,7 +26,7 @@ async def exec_cmd(cmd:Command):
 async def exec_cmd(table:ValidUploadTableName):
 	try:
 		connection = await get_connection()
-		await connection.execute(f'delete from "{table}"')
+		await connection.execute(f'delete from "{table.name}"')
 		await connection.close()
 	except Exception as e:
 		return e

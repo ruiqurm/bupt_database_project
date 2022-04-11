@@ -40,7 +40,7 @@ async def upload_data_background(id: str, reader: csv.reader, table_name: str, c
     Args:
         reader (csv.reader): _description_
         table_name (str): _description_
-        command (str): _description_
+        command (str): _description_  
     """
     counter = 0
     connection = await get_connection()
@@ -59,20 +59,21 @@ async def upload_data_background(id: str, reader: csv.reader, table_name: str, c
 
 
 @data_router.post("/upload")
-async def upload_data(table: ValidUploadTableName, file: UploadFile, background_tasks: BackgroundTasks, encoding: str = "utf-8", max_line: int = 50):
+async def upload_data(name: ValidUploadTableName, file: UploadFile, background_tasks: BackgroundTasks, encoding: str = "utf-8", max_line: int = 50):
     """上传数据
 
     Args:
-        table (ValidUploadTableName): 表名
-        file (UploadFile): 文件
-        encoding (str, optional): 文件编码. 默认为 "utf-8".
-        max_line: 一次最大操作行
-    Raises:
-        : 上传文件失败异常
+        table (ValidUploadTableName): 表名  
+        file (UploadFile): 文件   
+        encoding (str, optional): 文件编码. 默认为 "utf-8".  
+        max_line: 一次最大操作行  
+    Raises:  
+        : 上传文件失败异常  
 
     Returns:
         _type_: _description_
     """
+    table = name
     contents = await file.read()
     data = contents.decode(encoding).splitlines()
     # file.file._file = io.TextIOBase(file.file._file,encoding="utf-8")
