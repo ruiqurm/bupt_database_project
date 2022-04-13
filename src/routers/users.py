@@ -4,7 +4,7 @@
 from fastapi import Request
 from fastapi.security import OAuth2PasswordRequestForm
 
-from src.utils import fetch_all, fetch_one
+from src.utils import fetch_one
 from ..user import UserIn, User
 from ..exceptions import OperationFailed
 from ..user_token import Token, authenticate_user, get_password_hash, create_access_token
@@ -13,7 +13,6 @@ from ..settings import Settings
 from fastapi import APIRouter
 from fastapi import Depends
 from datetime import datetime, timedelta
-from typing import Optional, List
 import asyncpg
 
 user_router = APIRouter(
@@ -24,11 +23,7 @@ user_router = APIRouter(
 normal_router = APIRouter(
     tags=["user相关"],
 )
-admin_router = APIRouter(
-    prefix="/admin",
-    tags=["admin"],
-    dependencies=[Depends(check_admin)]
-)
+
 
 
 @normal_router.post("/register")
@@ -47,10 +42,10 @@ async def register(user: UserIn):
     """
     user.password = get_password_hash(user.password)
     try:
-        await fetch_one('INSERT INTO "USER" ("username", "password") VALUES ($1,$2)',user.username, user.password)
+        await fetch_one('INSERT INTO myuser ("username", "password") VALUES ($1,$2)',user.username, user.password)
     except asyncpg.PostgresError as e:
         raise OperationFailed()
-    return User(** await fetch_one('SELECT * FROM "USER" WHERE "username"= $1',user.username))
+    return User(** await fetch_one('SELECT * FROM myuser WHERE "username"= $1',user.username))
 
 
 @normal_router.post("/token", response_model=Token)
@@ -63,7 +58,7 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends()):
     return await login(UserIn(username=form_data.username, password=form_data.password))
 
 
-@normal_router.post("/login", response_model=Token)
+@normal_router.post("/login")
 async def login(data: UserIn):
     """登录
 
@@ -84,7 +79,8 @@ async def login(data: UserIn):
     access_token = create_access_token(
         data={Settings.PAYLOAD_NAME: user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    return {"access_token": access_token, "token_type": "bearer",**user.dict()}
 
 
 @user_router.get("/me", response_model=User)
@@ -97,58 +93,3 @@ async def read_users_me(request: Request):
     return request.state.user
 
 
-@admin_router.get("/user", response_model=List[User])
-async def get_users():
-    """获取所有用户，需要管理员权限
-
-    Returns:
-        List[User]: 所有用户的信息
-    """
-    users = await fetch_all('SELECT * FROM "USER"')
-    return [User(**user) for user in users]
-
-
-@admin_router.post("/administrator/{userid}")
-async def grant_user_as_admin(userid: int):
-    """授予用户管理员权限，需要管理员权限
-    即使用户不存在也不会报错
-
-    Args:
-        userid (int): 用户id
-    """
-    await fetch_one('UPDATE "USER" SET is_admin = true WHERE id = $1',userid)
-    return "ok"
-
-
-@admin_router.delete("/administrator/{userid}")
-async def revoke_user_as_admin(userid: int):
-    """撤销用户管理员权限，需要管理员权限
-    即使用户不存在也不会报错
-
-    Args:
-        userid (int): 用户id
-    """
-    await fetch_one('UPDATE "USER" SET is_admin = false WHERE id = $1', userid)
-    return "ok"
-
-@admin_router.post("/active/{userid}")
-async def activate_user(userid: int):
-    """激活用户，需要管理员权限
-    即使用户不存在也不会报错
-
-    Args:
-        userid (int): 用户id
-    """
-    await fetch_one('UPDATE "USER" SET is_active = true WHERE id = $1', userid)
-    return "ok"
-
-@admin_router.delete("/active/{userid}")
-async def deactivate_user(userid: int):
-    """反激活用户，需要管理员权限
-    即使用户不存在也不会报错
-
-    Args:
-        userid (int): 用户id
-    """
-    await fetch_one('UPDATE "USER" SET is_active = false WHERE id = $1', userid)
-    return "ok"

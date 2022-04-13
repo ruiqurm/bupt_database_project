@@ -26,7 +26,7 @@ async def exec_cmd(cmd:Command):
 async def exec_cmd(table:ValidUploadTableName):
 	try:
 		connection = await get_connection()
-		await connection.execute(f'delete from "{table.name}"')
+		await connection.execute(f'delete from {table.name}')
 		await connection.close()
 	except Exception as e:
 		return e
@@ -42,7 +42,7 @@ async def asadmin(id:int):
 
 	"""
 	try:
-		await fetch_one('update "USER" set "is_admin" = true,"is_active"= true where "id" = $1',id)
+		await fetch_one('update myuser set "is_admin" = true,"is_active"= true where "id" = $1',id)
 		return "ok"
 	except Exception as e:
 		return e
@@ -56,5 +56,5 @@ async def listuser():
 		id (int): id
 
 	"""
-	users = await fetch_all('SELECT * FROM "USER"')
+	users = await fetch_all('SELECT * FROM myuser')
 	return [User(**user) for user in users]

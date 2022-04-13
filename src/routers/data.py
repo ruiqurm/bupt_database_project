@@ -122,12 +122,12 @@ async def download_table(table: ValidTableName):
             os.remove(f"{Settings.TEMPDIR}/{file}")
     __download_dict[table_name] = []
     async with connection.transaction():
-        count = await connection.fetchrow(f'SELECT COUNT(*) FROM "{table_name}"')
+        count = await connection.fetchrow(f'SELECT COUNT(*) FROM {table_name}')
         count = count["count"]
         max_row = Settings.MAX_ROW_PER_FILE
         for i in range(0, count, max_row):
             id = uuid.uuid4().hex + ".csv"
-            command = f'COPY (select * from "{table_name}" LIMIT {max_row} OFFSET {i}) TO \'{Settings.TEMPDIR}/{id}\' WITH (FORMAT CSV, HEADER);'
+            command = f'COPY (select * from {table_name} LIMIT {max_row} OFFSET {i}) TO \'{Settings.TEMPDIR}/{id}\' WITH (FORMAT CSV, HEADER);'
             # print(command)
             await connection.execute(command)
             __download_dict[table_name].append(id)
@@ -144,27 +144,6 @@ class GetSectorEnocdeChoice(str, Enum):
     name = "name"
     id = "id"
 
-
-# @data_router.get("/{category}")
-# async def get_sector_list(category:SectorOrEnocde,choice: GetSectorEnocdeChoice):
-# 	if category==SectorOrEnocde.sector and choice == GetSectorEnocdeChoice.name:
-# 		command = "SELECT SECTOR_NAME From tbCell GROUP BY SECTOR_NAME"
-# 	elif category==SectorOrEnocde.sector and choice == GetSectorEnocdeChoice.id:
-# 		command = "SELECT SECTOR_ID From tbCell GROUP BY SECTOR_ID"
-# 	elif category==SectorOrEnocde.enodeb and choice == GetSectorEnocdeChoice.name:
-# 		command = "SELECT ENODEB_NAME From tbCell GROUP BY ENODEB_NAME"
-# 	elif command == SectorOrEnocde.enodeb and choice == GetSectorEnocdeChoice.id:
-# 		command = "SELECT ENODEB_ID From tbCell GROUP BY ENODEB_ID"
-# 	else:
-# 		raise
-# 	async with aiosqlite.connect("./data.db") as db:
-# 		db.row_factory = aiosqlite.Row
-# 		async with db.execute(command) as cursor:
-# 			rows = await cursor.fetchall()
-# 			if rows:
-# 				return [row for row in rows]
-# 			else:
-# 				return []
 
 """
 enode和sector的数据查询
@@ -195,6 +174,16 @@ class TbcellModel(BaseModel):
     class Config:
         def alias_generator(x): return x.upper()
 
+@data_router.get("/sector")
+async def get_sector_detail(choice: GetSectorEnocdeChoice):
+    """
+    获取全部小区id或者名称
+    """
+    if choice == GetSectorEnocdeChoice.name:
+        command = 'SELECT "SECTOR_NAME" From tbCell;'
+    elif choice == GetSectorEnocdeChoice.id:
+        command = 'SELECT "SECTOR_ID" From tbCell;'
+    return await fetch_all(command)
 
 @data_router.get("/sector/detail")
 async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
@@ -202,20 +191,29 @@ async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     输入(或下拉列表)小区id或名称，返回sector全部信息
     """
     if choice == GetSectorEnocdeChoice.name:
-        command = 'SELECT * From "tbCell" WHERE "SECTOR_NAME" = $1;'
+        command = 'SELECT * From tbCell WHERE "SECTOR_NAME" = $1;'
     elif choice == GetSectorEnocdeChoice.id:
-        command = 'SELECT * From "tbCell" WHERE "SECTOR_ID" = $1;'
+        command = 'SELECT * From tbCell WHERE "SECTOR_ID" = $1;'
     return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
 
 
 @data_router.get("/enodeb/detail")
 async def get_enodeb_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     if choice == GetSectorEnocdeChoice.name:
-        command = 'SELECT * From "tbCell" WHERE "ENODEB_NAME" = $1;'
+        command = 'SELECT * From tbCell WHERE "ENODEB_NAME" = $1;'
     elif choice == GetSectorEnocdeChoice.id:
-        command = 'SELECT * From "tbCell" WHERE "ENODEB_ID" = $1;'
+        command = 'SELECT * From tbCell WHERE "ENODEB_ID" = $1;'
     return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
-
+@data_router.get("/enodeb")
+async def get_sector_detail(choice: GetSectorEnocdeChoice):
+    """
+    获取全部小enode id或者名称
+    """
+    if choice == GetSectorEnocdeChoice.name:
+        command = 'SELECT "ENODEB_NAME" From tbCell;'
+    elif choice == GetSectorEnocdeChoice.id:
+        command = 'SELECT "ENODEB_ID" From tbCell;'
+    return await fetch_all(command)
 
 class KPIChoice(str, Enum):
     RCCConnSUCC = "RCCConnSUCC"
@@ -225,7 +223,7 @@ class KPIChoice(str, Enum):
 
 @data_router.get("/kpi/detail")
 async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date, end_time: datetime.date):
-    command = 'SELECT "StartTime","{}" From "tbKPI" WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
+    command = 'SELECT "StartTime","{}" From tbKPI WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
         choice.value)
     return await fetch_all(command, name, start_time, end_time)
 
@@ -246,7 +244,7 @@ async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoic
     if granularity == GranularityChoice.a15min:
         command = f"""
         SELECT "StartTime","AvgNoise{prbindex}" 
-        FROM  "tbPRB"
+        FROM  tbPRB
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
         return await fetch_all(command, enodeb_name, start_time, end_time)
@@ -256,7 +254,7 @@ async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoic
         await connection.execute("CALL update_tbprb_new();")
         command = f"""
         SELECT "StartTime","AvgNoise{prbindex}" 
-        FROM  "tbPRB"
+        FROM  tbPRB
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
         result = await fetch_all(command, enodeb_name, start_time, end_time, connection=connection)
@@ -266,7 +264,7 @@ async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoic
 
 async def get_tbCell_pos():
     command = """
-        select "SECTOR_ID","LONGITUDE","LATITUDE" from "tbCell";
+        select "SECTOR_ID","LONGITUDE","LATITUDE" from tbCell;
     """
     pbCelldata = await fetch_all(command)
     ret = dict()
@@ -283,7 +281,7 @@ async def network_interference_structure_diagram():
     """
     command = """
         SELECT "SCELL","NCELL","C2I_Mean"
-        FROM  "tbC2I";
+        FROM  tbC2I;
         """
     results = await fetch_all(command)
     pos = await get_tbCell_pos()

@@ -44,24 +44,24 @@ class Settings:
 
 
 class ValidUploadTableName(str, Enum):
-    tbCell = "tbcell"
-    tbKPI = "tbkpi"
-    tbPRB = "tbprb"
-    tbMROData = "tbmordata"
-    tbC2I = "tbc2i"
+    tbcell = "tbcell"
+    tbkpi = "tbkpi"
+    tbprb = "tbprb"
+    tbmrodata = "tbmrodata"
+    tbc2i = "tbc2i"
 
 
 class ValidTableName(str, Enum):
-    tbCell = "tbcell"
-    tbKPI = "tbkpi"
-    tbPRB = "tbprb"
-    tbMROData = "tbmordata"
-    tbPRBnew = "tbprb"
+    tbcell = "tbcell"
+    tbkpi = "tbkpi"
+    tbprb = "tbprb"
+    tbmrodata = "tbmrodata"
+    tbprbnew = "tbprbnew"
     tbC2I = "tbc2i"
 
 
 str2Model = {
-    key:value for key,value in vars(model).items() if key.startswith("tb")
+    str.lower(key):value for key,value in vars(model).items() if key.startswith("tb")
 }
 
 # __column_count = {

@@ -1,7 +1,7 @@
 /*
 User
 */
-CREATE TABLE IF NOT EXISTS "USER" (
+CREATE TABLE IF NOT EXISTS myuser (
 	"id" SERIAL PRIMARY KEY,
 	"username" VARCHAR(32) NOT NULL UNIQUE,
 	"password" VARCHAR(64) NOT NULL,
@@ -15,7 +15,7 @@ tbCell
 CONSTRAINT TOTLETILT_VALUE CHECK("TOTLETILT" = "ELECTTILT" + "MECHTILT")
 
 */
-CREATE TABLE IF NOT EXISTS "tbCell" ( 
+CREATE TABLE IF NOT EXISTS tbcell ( 
 "CITY" varchar(255),
 "SECTOR_ID" varchar(50) PRIMARY KEY, 
 "SECTOR_NAME" varchar(255) NOT NULL, 
@@ -43,7 +43,7 @@ CONSTRAINT LATITUDE_RANGE check("LATITUDE" BETWEEN -90 AND 90)
 /*
 tbMRO
 */
-CREATE TABLE IF NOT EXISTS "tbMROData" (
+CREATE TABLE IF NOT EXISTS tbMROData (
 "TimeStamp" varchar(255) ,
 "ServingSector" varchar(255) ,
 "InterferingSector" varchar(255) ,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS "tbMROData" (
 /*
 tbKPI
 */
-CREATE TABLE IF NOT EXISTS "tbKPI" (    
+CREATE TABLE IF NOT EXISTS tbKPI (    
 "StartTime" date,
 "ENODEB_NAME" varchar(255),
 "SECTOR_DESCRIPTION" varchar(255) NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS "tbKPI" (
 /*
 tbPRB
 */
-CREATE TABLE IF NOT EXISTS "tbPRB"
+CREATE TABLE IF NOT EXISTS tbPRB
 (
 "StartTime" timestamp,
 "ENODEB_NAME"  varchar(255),
@@ -92,7 +92,7 @@ tbPRBnew
 /*
 tbC2i
 */
-CREATE TABLE IF NOT EXISTS "tbC2I"
+CREATE TABLE IF NOT EXISTS tbC2I
 (
 "CITY" varchar(255),
 "SCELL" varchar(255),

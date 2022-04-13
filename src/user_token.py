@@ -31,7 +31,7 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 async def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
-    user = await fetch_one('SELECT * FROM "USER" WHERE "username" = $1',username)
+    user = await fetch_one('SELECT * FROM myuser WHERE "username" = $1',username)
     if user is None:
         raise NoSuchUser()
     user: UserInDB = UserInDB(**user)

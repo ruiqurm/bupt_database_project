@@ -14,7 +14,7 @@ class getInsertCmdMixin():
 	@classmethod
 	def get_insert_command(cls)->str:
 		if cls.INSERT_METHOD is None:
-			cls.INSERT_METHOD = "INSERT INTO \"{}\" VALUES ({});".format(cls.__name__, ",".join([f"${i}" for i in range(1, len(cls.__fields__)+1)]))
+			cls.INSERT_METHOD = "INSERT INTO {} VALUES ({});".format(cls.__name__, ",".join([f"${i}" for i in range(1, len(cls.__fields__)+1)]))
 		return cls.INSERT_METHOD
 	
 	@classmethod
