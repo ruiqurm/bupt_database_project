@@ -1,5 +1,7 @@
 import os
 
+import pydantic
+
 from src.model import tbC2I, tbCell, tbKPI, tbMROData
 from ..pylouvain import PyLouvain, in_order
 from fastapi.responses import FileResponse
@@ -15,6 +17,7 @@ from fastapi import APIRouter, File, UploadFile
 from enum import Enum
 from ..settings import ValidTableName, ValidUploadTableName, str2Model, Settings 
 from typing import List, Optional, Dict, Union
+from ..model import tbCell
 import csv
 
 data_router = APIRouter(
@@ -149,32 +152,7 @@ class GetSectorEnocdeChoice(str, Enum):
 enode和sector的数据查询
 """
 
-
-class TbcellModel(BaseModel):
-    city: str
-    sector_id: str
-    sector_name: str
-    enodebid: str
-    enodeb_name: str
-    earfcn: int
-    pci: int
-    pss: Optional[str]
-    sss: Optional[str]
-    tac: int
-    vendor: str
-    longitude: float
-    latitude: float
-    style: str
-    azimuth: float
-    height: float
-    electtilt: float
-    mechtilt: float
-    totletilt: float
-
-    class Config:
-        def alias_generator(x): return x.upper()
-
-@data_router.get("/sector")
+@data_router.get("/sector",response_model=List[Dict[str,str]])
 async def get_sector_detail(choice: GetSectorEnocdeChoice):
     """
     获取全部小区id或者名称
@@ -185,7 +163,7 @@ async def get_sector_detail(choice: GetSectorEnocdeChoice):
         command = 'SELECT "SECTOR_ID" From tbCell;'
     return await fetch_all(command)
 
-@data_router.get("/sector/detail")
+@data_router.get("/sector/detail",response_model=tbCell)
 async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     """
     输入(或下拉列表)小区id或名称，返回sector全部信息
@@ -194,17 +172,18 @@ async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
         command = 'SELECT * From tbCell WHERE "SECTOR_NAME" = $1;'
     elif choice == GetSectorEnocdeChoice.id:
         command = 'SELECT * From tbCell WHERE "SECTOR_ID" = $1;'
-    return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
+    return await fetch_one_then_wrap_model(command, tbCell, name_or_id)
 
 
-@data_router.get("/enodeb/detail")
+@data_router.get("/enodeb/detail",response_model=tbCell)
 async def get_enodeb_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     if choice == GetSectorEnocdeChoice.name:
         command = 'SELECT * From tbCell WHERE "ENODEB_NAME" = $1;'
     elif choice == GetSectorEnocdeChoice.id:
         command = 'SELECT * From tbCell WHERE "ENODEB_ID" = $1;'
-    return await fetch_one_then_wrap_model(command, TbcellModel, name_or_id)
-@data_router.get("/enodeb")
+    return await fetch_one_then_wrap_model(command, tbCell, name_or_id)
+
+@data_router.get("/enodeb",response_model=List[Dict[str,str]])
 async def get_sector_detail(choice: GetSectorEnocdeChoice):
     """
     获取全部小enode id或者名称
@@ -221,9 +200,13 @@ class KPIChoice(str, Enum):
     RCCConnRATE = "RCCConnRATE"
 
 
-@data_router.get("/kpi/detail")
+class kpi_detail(pydantic.BaseModel):
+    StartTime: str
+    Data:Union[int,float,str]
+
+@data_router.get("/kpi/detail",response_model=List[kpi_detail])
 async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date, end_time: datetime.date):
-    command = 'SELECT "StartTime","{}" From tbKPI WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
+    command = 'SELECT "StartTime","{}" as "Data" From tbKPI WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
         choice.value)
     return await fetch_all(command, name, start_time, end_time)
 
@@ -232,8 +215,11 @@ class GranularityChoice(str, Enum):
     a15min = "15min"
     hour = "hour"
 
+class prb_detail(pydantic.BaseModel):
+    StartTime: str
+    AvgNoise:float
 
-@data_router.get("/prb/detail")
+@data_router.get("/prb/detail",response_model=List[prb_detail])
 async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
     """
     输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
@@ -243,7 +229,7 @@ async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoic
     """
     if granularity == GranularityChoice.a15min:
         command = f"""
-        SELECT "StartTime","AvgNoise{prbindex}" 
+        SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
         FROM  tbPRB
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
@@ -253,7 +239,7 @@ async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoic
         connection = await get_connection()
         await connection.execute("CALL update_tbprb_new();")
         command = f"""
-        SELECT "StartTime","AvgNoise{prbindex}" 
+        SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
         FROM  tbPRB
         WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
         """
@@ -272,8 +258,16 @@ async def get_tbCell_pos():
         ret[row["SECTOR_ID"]] = (row["LONGITUDE"], row["LATITUDE"])
     return ret
 
+class diagramResponseModel(pydantic.BaseModel):
+    class Node(pydantic.BaseModel):
+        id : str
+        lng : str
+        lat :str
+    nodes: List[Node]
+    partition : List[List[int]]
+    q : float
 
-@data_router.get("/diagram")
+@data_router.get("/diagram",response_model=diagramResponseModel)
 async def network_interference_structure_diagram():
     """
     返回网络干扰结构图

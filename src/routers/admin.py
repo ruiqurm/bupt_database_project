@@ -5,11 +5,11 @@ from typing import Optional, List
 import pydantic
 from ..dependency import check_admin
 from ..user import User
-from src.utils import fetch_all, fetch_one
+from src.utils import fetch_all, fetch_one, fetch_one_then_wrap_model
 admin_router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(check_admin)]
+    # dependencies=[Depends(check_admin)]
 )
 
 
@@ -71,26 +71,34 @@ async def deactivate_user(userid: int):
     await fetch_one('UPDATE myuser SET is_active = false WHERE id = $1', userid)
     return "ok"
 
-class DatabaseSetting(pydantic.BaseModel):
-	pass
+class TableInfo(pydantic.BaseModel):
+    table_name : str
+    size_pretty :str
+    size : int
+    path : str
+    tuple_count :int
 
-@admin_router.get("/database/")
-async def deactivate_user():
-	"""获取数据库信息
+class SharedBuffer(pydantic.BaseModel):
+    pass
 
-	Args:
-		userid (int): _description_
+@admin_router.get("/database/",response_model=List[TableInfo])
+async def get_table_info():
+    """获取数据库信息
 
-
-	SELECT 
-  table_name, 
-  pg_size_pretty( pg_total_relation_size(quote_ident(table_name))), 
-  pg_total_relation_size(quote_ident(table_name))
-FROM 
-  information_schema.tables
-WHERE 
-  table_schema = 'public'
-ORDER BY 
-  pg_total_relation_size(quote_ident(table_name)) DESC;
-	"""
-	pass
+    """
+    table_info_command = """
+    SELECT 
+    table_name, 
+    pg_size_pretty( pg_total_relation_size(quote_ident(table_name)))as size_pretty, 
+    pg_total_relation_size(quote_ident(table_name)) as size,
+    pg_relation_filepath(CAST(table_name AS text)) as path,
+    n_live_tup as tuple_count
+    FROM 
+    information_schema.tables
+    INNER JOIN pg_stat_user_tables ON table_name = relname
+    WHERE 
+    table_schema = 'public'
+    ORDER BY 
+    pg_total_relation_size(quote_ident(table_name)) DESC;
+    """
+    return [TableInfo(**i) for i in await fetch_all(table_info_command)]
