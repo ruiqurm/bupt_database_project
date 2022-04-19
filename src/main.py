@@ -1,7 +1,8 @@
 
 # from dependency import authenticate_user, get_current_user
 from fastapi import FastAPI
-from .routers.users import user_router,normal_router,admin_router
+from .routers.users import user_router,normal_router
+from .routers.admin import admin_router
 from .routers.data import data_router
 from .routers.debug import debug_router
 from .exceptions import BaseException
@@ -79,4 +80,4 @@ async def create_temp_dir():
 
 import uvicorn
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, log_level="info",reload=True)
+    uvicorn.run("src.main:app", host="127.0.0.1", port=8000, log_level="info",reload=True)

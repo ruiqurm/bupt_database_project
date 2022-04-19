@@ -60,7 +60,7 @@ async def fetch_all(command: str, *args, connection: Union[None, asyncpg.Connect
         List[asyncpg.Record]: _description_
     """
     if connection is None:
-        connection = get_connection()
+        connection = await get_connection()
         result = await connection.fetch(command, *args)
         await connection.close()
     else:

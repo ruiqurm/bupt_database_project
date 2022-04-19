@@ -33,7 +33,7 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         # 查询用户数据
         token_data = TokenData(username=username)
         con = await asyncpg.connect(user='postgres', database="tb")
-        user = await con.fetchrow('SELECT * FROM "USER" WHERE "username"= $1', token_data.username)
+        user = await con.fetchrow('SELECT * FROM myuser WHERE "username"= $1', token_data.username)
         await con.close()
     except JWTError:
         raise Unauthorization()
