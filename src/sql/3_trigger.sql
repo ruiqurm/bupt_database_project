@@ -54,7 +54,8 @@ CREATE OR REPLACE FUNCTION trg_tbcell() RETURNS trigger AS $trg_tbcell$
     END;
 $trg_tbcell$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tbcellBeforeInsertOrUpdate
-BEFORE INSERT OR UPDATE ON "tbCell"
+CREATE OR REPLACE TRIGGER tbcellBeforeInsertOrUpdate
+BEFORE INSERT ON "tbCell"
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbcell();
+
