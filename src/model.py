@@ -85,10 +85,10 @@ class tbMROData(pydantic.BaseModel,getInsertCmdMixin):
 	TimeStamp:str
 	ServingSector:str
 	InterferingSector:str
-	LteScRSRP:str
-	LteNcRSRP:str
-	LteNcEarfcn:str
-	LteNcPci:str
+	LteScRSRP:float
+	LteNcRSRP:float
+	LteNcEarfcn:int
+	LteNcPci:int
 
 class tbKPI(pydantic.BaseModel,getInsertCmdMixin):
 	StartTime:datetime.date
@@ -220,3 +220,16 @@ class tbC2I(pydantic.BaseModel,getInsertCmdMixin):
 	std:float
 	sampleCount:float
 	WeightedC2I:float
+
+class tbC2Inew(pydantic.BaseModel, getInsertCmdMixin):
+	SCELL:str
+	NCELL:str
+	C2I_Mean:float
+	std:float
+	PrbC2I9:float
+	PrbABS6:float
+
+class tbC2I3(pydantic.BaseModel, getInsertCmdMixin):
+	a:str
+	b:str
+	c:str

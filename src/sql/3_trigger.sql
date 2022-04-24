@@ -48,14 +48,27 @@ $$;
 
 CREATE OR REPLACE FUNCTION trg_tbcell() RETURNS trigger AS $trg_tbcell$
     BEGIN
-        DELETE FROM "tbCell"
+        DELETE FROM "tbcell"
         WHERE "SECTOR_ID"= NEW."SECTOR_ID";
         return NEW;
     END;
 $trg_tbcell$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER tbcellBeforeInsertOrUpdate
-BEFORE INSERT ON "tbCell"
+BEFORE INSERT ON "tbcell"
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbcell();
 
+
+CREATE OR REPLACE FUNCTION trg_tbmrodata() RETURNS trigger AS $trg_tbmrodata$
+    BEGIN
+        DELETE FROM "tbMROData"
+        WHERE "TimeStamp"= NEW."TimeStamp" and "ServingSector"=NEW."ServingSector" and "InterferingSector"=NEW."InterferingSector";
+        return NEW;
+    END;
+$trg_tbmrodata$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER tbmrodataBeforeInsertOrUpdate
+BEFORE INSERT ON "tbMROData"
+FOR EACH ROW 
+EXECUTE FUNCTION trg_tbmrodata();

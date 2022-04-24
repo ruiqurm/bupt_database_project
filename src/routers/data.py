@@ -19,6 +19,7 @@ from ..settings import ValidTableName, ValidUploadTableName, str2Model, Settings
 from typing import List, Optional, Dict, Union
 from ..model import tbCell
 import csv
+from scipy.stats import norm
 
 data_router = APIRouter(
     prefix=f"{Settings.DATA_ROUTER_PREFIX}",
@@ -300,3 +301,99 @@ async def network_interference_structure_diagram():
         "partition": partition,
         "q": q,
     }
+
+
+"""
+tbC2I干扰分析
+"""
+
+@data_router.post("/generate_tbC2Inew")
+async def generate_tbC2Inew(n: int):
+    command = f"""
+    with tmp as (
+	select "ServingSector" as "SCELL", "InterferingSector" as "NCELL", ("LteScRSRP"-"LteNcRSRP") as "C2I"
+    from tbMROData
+    where ("ServingSector", "InterferingSector") in (select "ServingSector", "InterferingSector"
+				                                     from tbMROData
+				                                     group by "ServingSector", "InterferingSector"
+				                                     having count(*)>=$1) )
+    select "SCELL", "NCELL", avg("C2I") as "C2I_Mean", stddev("C2I") as "std"
+    from tmp
+    group by "SCELL", "NCELL";
+    """
+    data = await fetch_all(command,n)
+    model = str2Model["tbc2inew"]
+    id = uuid.uuid4().hex
+    __upload_dict[id] = UploadTask(id=id)
+    connection = await get_connection()
+    try:
+        command1 = model.get_insert_command()
+        await connection.execute("DELETE FROM tbC2Inew;")
+        for i in data:
+            t1 = tuple(i)
+            t2 = (norm.cdf(9,t1[2],t1[3]), norm.cdf(6,t1[2],t1[3])-norm.cdf(-6,t1[2],t1[3]))
+            t3 = t1+t2
+            await connection.executemany(command1, [model.from_tuple(t3).to_tuple()])
+
+    except Exception as e:
+        __upload_dict[id].msg = str(e)
+        __upload_dict[id].failed = True
+    finally:
+        __upload_dict[id].done = True
+
+    return {"id": id, "url": f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
+
+"""
+重叠覆盖干扰小区三元组分析
+"""
+
+@data_router.post("/generate_tbC2I3")
+async def generate_tbC2I3(x: int):
+    command = f"""
+    select "SCELL", "NCELL"
+    from tbC2Inew
+    where "PrbABS6">=($1/100);
+    """
+    data = await fetch_all(command,x)
+    listName = [] #存放data中小区ID的列表
+    res = [] #存放结果的列表
+
+    for i in data:
+        t = tuple(i)
+        if t[0] not in listName:
+            listName.append(t[0])
+        
+        if t[1] not in listName:
+            listName.append(t[1])
+
+    for i in data:
+        t = tuple(i)
+        for id in listName:
+            if id != t[0] and id != t[1] :
+                if ((id, t[0]) in data or (t[0], id) in data) and ((id, t[1]) in data or (t[1], id) in data):
+                    list = []
+                    list.append(id)
+                    list.append(t[0])
+                    list.append(t[1])
+                    list.sort()
+                    tmp = tuple(list)
+                    if tmp not in res:
+                        res.append(tmp)
+                    
+    model = str2Model["tbc2i3"]
+    id = uuid.uuid4().hex
+    __upload_dict[id] = UploadTask(id=id)
+    connection = await get_connection()
+    try:
+        command1 = model.get_insert_command()
+        await connection.execute("DELETE FROM tbC2Inew;")
+        for i in res:
+            await connection.executemany(command1, [model.from_tuple(i).to_tuple()])
+
+    except Exception as e:
+        __upload_dict[id].msg = str(e)
+        __upload_dict[id].failed = True
+    finally:
+        __upload_dict[id].done = True
+
+    return {"id": id, "url": f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
