@@ -6,6 +6,7 @@ cat 1_create_table.sql|awk '/^"/{print $0}'|sed -e 's/,/\n/g' |sed -e 's/"//g'|s
 """
 
 import datetime
+from tkinter import E
 from typing import Optional
 import pydantic
 
@@ -18,8 +19,14 @@ class getInsertCmdMixin():
 		return cls.INSERT_METHOD
 	
 	@classmethod
-	def from_tuple(cls,tuple:tuple):
-		return cls(**{key: tuple[i] for i, key in enumerate(cls.__fields__.keys())})
+	def from_tuple(cls,tuple:tuple,ignore_but_log=False):
+		if not ignore_but_log:
+			return cls(**{key: tuple[i] for i, key in enumerate(cls.__fields__.keys())})
+		else:
+			try:
+				return cls(**{key: tuple[i] for i, key in enumerate(cls.__fields__.keys())})
+			except Exception:
+				return None
 
 	def to_tuple(self)->tuple:
 		return [getattr(self, key) for key in self.__fields__.keys()]
@@ -220,3 +227,12 @@ class tbC2I(pydantic.BaseModel,getInsertCmdMixin):
 	std:float
 	sampleCount:float
 	WeightedC2I:float
+
+class tbMRODataExternal(pydantic.BaseModel,getInsertCmdMixin):
+	TimeStamp:str
+	ServingSector:str
+	InterferingSector:str
+	LteScRSRP:float
+	LteNcRSRP:float
+	LteNcEarfcn:int
+	LteNcPci:int

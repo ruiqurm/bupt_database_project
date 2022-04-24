@@ -40,7 +40,7 @@ class Settings:
     DATA_ROUTER_PREFIX = "/data"
 
     MAX_ROW_PER_FILE = 50000
-    TEMPDIR = "/.tb"
+    TEMPDIR = ".tb"
 
 
 class ValidUploadTableName(str, Enum):
@@ -58,6 +58,7 @@ class ValidTableName(str, Enum):
     tbmrodata = "tbmrodata"
     tbprbnew = "tbprbnew"
     tbC2I = "tbc2i"
+    tbmrodatanew = "tbmrodatanew"
 
 
 str2Model = {
@@ -133,6 +134,6 @@ else:
 
 if(platform.system() == 'Windows'):
     import os
-    Settings.TEMPDIR = "{}{}".format(os.getcwd(), Settings.TEMPDIR)
+    Settings.TEMPDIR = os.path.join(os.getcwd(),Settings.TEMPDIR)
 else:
-    Settings.TEMPDIR = "{}{}".format("/tmp", Settings.TEMPDIR)
+    Settings.TEMPDIR = os.path.join("/tmp",Settings.TEMPDIR)
