@@ -44,13 +44,13 @@ CONSTRAINT LATITUDE_RANGE check("LATITUDE" BETWEEN -90 AND 90)
 tbMRO
 */
 CREATE TABLE IF NOT EXISTS tbMROData (
-"TimeStamp" varchar(255) ,
-"ServingSector" varchar(255) ,
-"InterferingSector" varchar(255) ,
-"LteScRSRP" varchar(255) ,
-"LteNcRSRP" varchar(255) ,
-"LteNcEarfcn" varchar(255) ,
-"LteNcPci" varchar(255)
+"TimeStamp" varchar(30) ,
+"ServingSector" varchar(50) ,
+"InterferingSector" varchar(50) ,
+"LteScRSRP" float ,
+"LteNcRSRP" float ,
+"LteNcEarfcn" int ,
+"LteNcPci" smallint
 );
 
 /*
@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS tbC2I
 PRIMARY KEY("SCELL","NCELL")
 );
 
+<<<<<<< HEAD
 CREATE TABLE IF NOT EXISTS tbMRODataExternal
 (
 "TimeStamp" varchar(255) ,
@@ -114,4 +115,23 @@ CREATE TABLE IF NOT EXISTS tbMRODataExternal
 "LteNcRSRP" FLOAT ,
 "LteNcEarfcn" INT ,
 "LteNcPci" INT
+=======
+CREATE TABLE IF NOT EXISTS tbC2Inew
+(
+"SCELL" varchar(255),
+"NCELL" varchar(255),
+"C2I_Mean" float,
+"std" float,
+"PrbC2I9" float,
+"PrbABS6" float,
+PRIMARY KEY("SCELL","NCELL")
+);
+
+CREATE TABLE IF NOT EXISTS tbC2I3
+(
+"a" varchar(255),
+"b" varchar(255),
+"c" varchar(255),
+PRIMARY KEY("a", "b", "c")
+>>>>>>> fb6d6d64398842de7442357beec3024fe77c67b1
 );

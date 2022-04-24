@@ -14,7 +14,7 @@ class Settings:
     """
     DATABASE_USER = "postgres"
     DATABASE_PASSWORD = None
-    DEFAULT_DATABASE = "tb"
+    DEFAULT_DATABASE = "postgres"
 
     """
 	User Rule
@@ -42,7 +42,6 @@ class Settings:
     MAX_ROW_PER_FILE = 50000
     TEMPDIR = ".tb"
 
-
 class ValidUploadTableName(str, Enum):
     tbcell = "tbcell"
     tbkpi = "tbkpi"
@@ -59,6 +58,8 @@ class ValidTableName(str, Enum):
     tbprbnew = "tbprbnew"
     tbC2I = "tbc2i"
     tbmrodatanew = "tbmrodatanew"
+    tbC2Inew = "tbc2inew"
+    tbC2I3 = "tbc2i3"
 
 
 str2Model = {
