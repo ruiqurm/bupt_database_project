@@ -104,3 +104,14 @@ CREATE TABLE IF NOT EXISTS tbC2I
 "WeightedC2I" float,
 PRIMARY KEY("SCELL","NCELL")
 );
+
+CREATE TABLE IF NOT EXISTS tbMRODataExternal
+(
+"TimeStamp" varchar(255) ,
+"ServingSector" varchar(255) ,
+"InterferingSector" varchar(255) ,
+"LteScRSRP" FLOAT ,
+"LteNcRSRP" FLOAT ,
+"LteNcEarfcn" INT ,
+"LteNcPci" INT
+);
