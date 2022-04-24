@@ -4,3 +4,4 @@ uvicorn == 0.17.5
 passlib[bcrypt]
 python-jose[cryptography]
 python-multipart == 0.0.5
+scipy

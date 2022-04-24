@@ -105,7 +105,6 @@ CREATE TABLE IF NOT EXISTS tbC2I
 PRIMARY KEY("SCELL","NCELL")
 );
 
-<<<<<<< HEAD
 CREATE TABLE IF NOT EXISTS tbMRODataExternal
 (
 "TimeStamp" varchar(255) ,
@@ -115,7 +114,7 @@ CREATE TABLE IF NOT EXISTS tbMRODataExternal
 "LteNcRSRP" FLOAT ,
 "LteNcEarfcn" INT ,
 "LteNcPci" INT
-=======
+);
 CREATE TABLE IF NOT EXISTS tbC2Inew
 (
 "SCELL" varchar(255),
@@ -133,5 +132,4 @@ CREATE TABLE IF NOT EXISTS tbC2I3
 "b" varchar(255),
 "c" varchar(255),
 PRIMARY KEY("a", "b", "c")
->>>>>>> fb6d6d64398842de7442357beec3024fe77c67b1
 );

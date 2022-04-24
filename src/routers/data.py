@@ -21,7 +21,7 @@ from fastapi import APIRouter, File, UploadFile
 from enum import Enum
 from ..settings import ValidTableName, ValidUploadTableName, str2Model, Settings
 from typing import List, Optional, Dict, Union
-from ..model import tbCell, tbMRODataExternal
+from ..model import tbC2Inew, tbCell, tbMRODataExternal
 import csv
 import shutil
 from scipy.stats import norm
@@ -426,18 +426,17 @@ async def generate_tbC2Inew(n: int):
     group by "SCELL", "NCELL";
     """
     data = await fetch_all(command,n)
-    model = str2Model["tbc2inew"]
     id = uuid.uuid4().hex
     __upload_dict[id] = UploadTask(id=id)
     connection = await get_connection()
     try:
-        command1 = model.get_insert_command()
+        command1 = tbC2Inew.get_insert_command()
         await connection.execute("DELETE FROM tbC2Inew;")
         for i in data:
             t1 = tuple(i)
             t2 = (norm.cdf(9,t1[2],t1[3]), norm.cdf(6,t1[2],t1[3])-norm.cdf(-6,t1[2],t1[3]))
             t3 = t1+t2
-            await connection.executemany(command1, [model.from_tuple(t3).to_tuple()])
+            await connection.executemany(command1, [tbC2Inew.from_tuple(t3).to_tuple()])
 
     except Exception as e:
         __upload_dict[id].msg = str(e)
