@@ -6,7 +6,6 @@ cat 1_create_table.sql|awk '/^"/{print $0}'|sed -e 's/,/\n/g' |sed -e 's/"//g'|s
 """
 
 import datetime
-from tkinter import E
 from typing import Optional
 import pydantic
 

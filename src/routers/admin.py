@@ -1,9 +1,8 @@
+
 from fastapi import APIRouter
-from fastapi import Depends
-from typing import Optional, List
+from typing import Any, Optional, List
 
 import pydantic
-from ..dependency import check_admin
 from ..user import User
 from src.utils import fetch_all, fetch_one, fetch_one_then_wrap_model
 admin_router = APIRouter(
@@ -78,12 +77,40 @@ class TableInfo(pydantic.BaseModel):
     path : str
     tuple_count :int
 
-class SharedBuffer(pydantic.BaseModel):
-    pass
+class PostgresSettingShortcut(pydantic.BaseModel):
+    shared_buffers :Optional[int] = None
+    wal_buffers : Optional[int] = None
+    effective_cache_size : Optional[int] = None
+    maintenance_work_mem : Optional[int] = None
+    max_connections :Optional[int] = None
+    tcp_keepalives_idle:Optional[int] = None
 
-@admin_router.get("/database/",response_model=List[TableInfo])
+class PostgresSettingShortcutOutput(pydantic.BaseModel):
+    name : str
+    setting : int
+    unit : Optional[str]
+    inbytes : Optional[int] = None
+    default : int 
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+        if self.unit:
+            if self.unit == "s":
+                self.inbytes = self.setting
+            elif self.unit.endswith("kB"):
+                if len(self.unit)==2:
+                    self.inbytes = self.setting * 1024
+                else:
+                    self.inbytes = int(self.unit[:-2]) * 1024
+            else:
+                self.inbytes = None
+        else:
+            self.unit = ""
+            self.inbytes = self.setting
+    
+
+@admin_router.get("/postgres/database/",response_model=List[TableInfo])
 async def get_table_info():
-    """获取数据库信息
+    """获取数据表信息
 
     """
     table_info_command = """
@@ -102,3 +129,35 @@ async def get_table_info():
     pg_total_relation_size(quote_ident(table_name)) DESC;
     """
     return [TableInfo(**i) for i in await fetch_all(table_info_command)]
+
+@admin_router.post("/postgres/basic")
+async def set_postgres_basic(settings:PostgresSettingShortcut):
+    """
+    shared_buffers PostgreSQL自身的缓冲区  
+    wal_buffers 将其WAL（预写日志）记录写入缓冲区，然后将这些缓冲区刷新到磁盘。如果有大量并发连接的话，则设置为一个较高的值可以提供更好的性能。  
+    effective_cache_size  提供可用于磁盘高速缓存的内存量的估计值。  
+    maintenance_work_mem 用于维护任务的内存设置。  
+    max_connections 最大连接数  
+    tcp_keepalives_idle 客户端超时时间  
+    """
+    changed = 0
+    for key in settings.__fields__.keys():
+        value = getattr(settings, key)
+        if value is None:
+            continue
+        changed+=1
+        if value < 0 :
+            value = "default"
+        command = "ALTER SYSTEM SET {} = {};".format(key,value)
+        await fetch_one(command)
+    if changed > 0:
+        command = "SELECT pg_reload_conf();"
+        await fetch_one(command)
+    return changed
+@admin_router.get("/postgres/basic",response_model=List[PostgresSettingShortcutOutput])
+async def get_postgres_basic():
+    """
+    获取shared_buffers，wal_buffers，effective_cache_size等数据
+    """
+    command = "select name,setting,unit,reset_val as \"default\" from pg_settings where name in ('shared_buffers','wal_buffers','effective_cache_size','maintenance_work_mem','max_connections','tcp_keepalives_idle');"
+    return [PostgresSettingShortcutOutput(**i) for i in await fetch_all(command)]

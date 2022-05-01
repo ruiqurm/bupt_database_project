@@ -132,9 +132,9 @@ else:
     Settings.DATABASE_USER = _config.get("username", "postgres")
     Settings.DATABASE_PASSWORD = _config.get("password", None)
 
+import os
 
 if(platform.system() == 'Windows'):
-    import os
     Settings.TEMPDIR = os.path.join(os.getcwd(),Settings.TEMPDIR)
 else:
     Settings.TEMPDIR = os.path.join("/tmp",Settings.TEMPDIR)

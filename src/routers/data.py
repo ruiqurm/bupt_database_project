@@ -187,13 +187,14 @@ async def get_sector_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     return await fetch_one_then_wrap_model(command, tbCell, name_or_id)
 
 
-@data_router.get("/enodeb/detail", response_model=tbCell)
+@data_router.get("/enodeb/detail", response_model=List[tbCell])
 async def get_enodeb_detail(name_or_id: str, choice: GetSectorEnocdeChoice):
     if choice == GetSectorEnocdeChoice.name:
         command = 'SELECT * From tbCell WHERE "ENODEB_NAME" = $1;'
     elif choice == GetSectorEnocdeChoice.id:
-        command = 'SELECT * From tbCell WHERE "ENODEB_ID" = $1;'
-    return await fetch_one_then_wrap_model(command, tbCell, name_or_id)
+        command = 'SELECT * From tbCell WHERE "ENODEBID" = $1;'
+        name_or_id = int(name_or_id)
+    return [tbCell(**i) for i in await fetch_all(command,name_or_id)]
 
 
 @data_router.get("/enodeb", response_model=List[Dict[str, str]])
@@ -204,7 +205,7 @@ async def get_sector_detail(choice: GetSectorEnocdeChoice):
     if choice == GetSectorEnocdeChoice.name:
         command = 'SELECT "ENODEB_NAME" From tbCell;'
     elif choice == GetSectorEnocdeChoice.id:
-        command = 'SELECT "ENODEB_ID" From tbCell;'
+        command = 'SELECT "ENODEBID" From tbCell;'
     return await fetch_all(command)
 
 
@@ -333,7 +334,6 @@ def support_gbk(zip_file: ZipFile):
             name_to_info[real_name] = info
     return zip_file
 
-import glob
 
 @data_router.post("/mro_parse")
 async def mro(file: UploadFile,encoding:str="utf-8"):
