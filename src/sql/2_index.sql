@@ -1,0 +1,11 @@
+CREATE INDEX index1
+ON tbcell("SECTOR_ID","SECTOR_NAME","ENODEBID","ENODEB_NAME");
+
+CREATE INDEX index2
+ON tbKPI("SECTOR_NAME");
+
+CREATE INDEX index3
+ON tbPRB("ENODEB_NAME");
+
+CREATE INDEX index4
+ON tbMROData("ServingSector","InterferingSector");
