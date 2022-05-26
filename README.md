@@ -13,7 +13,7 @@ pip install -r requirements.txt
 ```powershell
 createdb.exe tb
 psql.exe -U postgres -d tb -f "src\sql\1_create_table.sql" 
-psql.exe -U postgres -d tb -f "src\sql\2_index_table.sql" 
+psql.exe -U postgres -d tb -f "src\sql\2_index.sql" 
 psql.exe -U postgres -d tb -f "src\sql\3_trigger.sql" 
 ```
 或者
