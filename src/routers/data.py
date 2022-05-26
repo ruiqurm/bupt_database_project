@@ -4,7 +4,7 @@ from asyncore import read
 import xml.etree.ElementTree as ET
 import os
 import zipfile
-
+import sys
 import pydantic
 
 from src.model import tbC2I, tbCell, tbKPI, tbMROData
@@ -14,7 +14,7 @@ from calendar import month
 import uuid
 from fastapi import BackgroundTasks
 import fastapi
-from ..utils import batch, fetch_all, fetch_one, fetch_one_then_wrap_model, get_connection
+from ..utils import batch, fetch_all, fetch_one, fetch_one_then_wrap_model, get_connection,Logger
 import datetime
 from pydantic import BaseModel
 import sqlite3
@@ -44,7 +44,7 @@ class UploadTask(BaseModel):
 __upload_dict = dict()
 
 
-async def upload_data_background(id: str, file, new_filepath: str, model: Union[tbCell, tbC2I, tbKPI, tbMROData,tbPRB], max_line: int):
+async def upload_data_background(name: ValidUploadTableName, id: str, file, new_filepath: str, model: Union[tbCell, tbC2I, tbKPI, tbMROData,tbPRB], max_line: int):
     """后台上传
 
     Args:
@@ -60,9 +60,18 @@ async def upload_data_background(id: str, file, new_filepath: str, model: Union[
         command = model.get_insert_command()
         async with connection.transaction():
             for fifty_rows in batch(iter(reader), max_line):
-                # 没做触发器
-                counter += max_line
-                await connection.executemany(command, [model.from_tuple(i).to_tuple() for i in fifty_rows])
+                list = []
+                # 数据清洗：从要插入的记录中删除不满足约束条件的项
+                for i in fifty_rows:
+                    counter += 1
+                    r = model.from_tuple(i)
+                    if not r.constraints():
+                        logger = Logger('datalog.txt')
+                        logger.write(name+" insert error: "+"can not insert line "+str(counter)+"\n")
+                    else:
+                        list.append(r.to_tuple())
+
+                await connection.executemany(command, list)
                 __upload_dict[id].current_row = counter
     except Exception as e:
         __upload_dict[id].msg = str(e)
@@ -89,6 +98,10 @@ async def upload_data(name: ValidUploadTableName, file: UploadFile, background_t
     Returns:
         _type_: _description_
     """
+    #将datalog中的内容清零
+    with open("datalog.txt", 'r+') as f:
+        f.truncate(0)
+
     id = uuid.uuid4().hex
     new_filepath = os.path.join(Settings.TEMPDIR, id)
     try:
@@ -103,7 +116,7 @@ async def upload_data(name: ValidUploadTableName, file: UploadFile, background_t
 
     __upload_dict[id] = UploadTask(id=id)
     background_tasks.add_task(upload_data_background,
-                              id, f, new_filepath, str2Model[name.name], max_line)
+                              name, id, f, new_filepath, str2Model[name.name], max_line)
 
     return {"id": id, "url": f"{Settings.DATA_ROUTER_PREFIX}/upload/status?id={id}"}
 

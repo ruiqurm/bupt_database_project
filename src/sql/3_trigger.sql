@@ -111,6 +111,19 @@ BEFORE INSERT ON tbMRODataExternal
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbmroexternal();
 
+CREATE OR REPLACE FUNCTION trg_tbc2i() RETURNS trigger AS $trg_tbc2i$
+    BEGIN
+        DELETE FROM tbC2I
+        WHERE "SCELL"= NEW."SCELL" and "NCELL"=NEW."NCELL";
+        return NEW;
+    END;
+$trg_tbc2i$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER tbc2iBeforeInsertOrUpdate
+BEFORE INSERT ON tbC2I
+FOR EACH ROW 
+EXECUTE FUNCTION trg_tbc2i();
+
 
 -- -- 外部导入的tbmro表的触发器
 -- CREATE OR REPLACE FUNCTION trg_tbmroexternal() RETURNS trigger AS $trg_tbmroexternal$

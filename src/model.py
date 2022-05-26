@@ -50,15 +50,20 @@ class tbCell(pydantic.BaseModel,getInsertCmdMixin):
 	MECHTILT:Optional[float]
 	TOTLETILT:Optional[float]
 	
-	# ignore value 
 	@pydantic.validator("PSS", pre=True)
 	def parse_pss(cls, value):
-		return None
-
-	# ignore value 
+		try:
+			value = int(value)
+		except Exception:
+			return None
+		return value
 	@pydantic.validator("SSS", pre=True)
 	def parse_sss(cls, value):
-		return None
+		try:
+			value = int(value)
+		except Exception:
+			return None
+		return value
 	@pydantic.validator("HEIGHT", pre=True)
 	def parse_1(cls, value):
 		try:
@@ -87,6 +92,30 @@ class tbCell(pydantic.BaseModel,getInsertCmdMixin):
 		except Exception:
 			return None
 		return value
+	
+	def constraints(self):
+		if self.SECTOR_ID==None or self.SECTOR_NAME==None or self.ENODEBID==None or self.ENODEB_NAME==None:
+			return False
+		if self.EARFCN==None or self.AZIMUTH==None or self.TOTLETILT==None:
+			return False
+		if self.PCI==None or self.PCI<0 or self.PCI>503:
+			return False
+		if self.PSS!=None and self.SSS!=None:
+			if self.PCI!=3*self.SSS+self.PSS:
+				return False
+		if self.ELECTTILT!=None and self.MECHTILT!=None:
+			if self.TOTLETILT!=self.ELECTTILT+self.MECHTILT:
+				return False
+		if self.LONGITUDE==None or self.LONGITUDE<-180 or self.LONGITUDE>180:
+			return False
+		if self.LATITUDE==None or self.LATITUDE<-90 or self.LATITUDE>90:
+			return False
+		if self.PSS==None:
+			self.PSS=self.PCI%3
+		if self.SSS==None:
+			self.SSS=(self.PCI-self.PSS)/3
+		return True
+
 class tbMROData(pydantic.BaseModel,getInsertCmdMixin):
 	TimeStamp:str
 	ServingSector:str
@@ -95,6 +124,11 @@ class tbMROData(pydantic.BaseModel,getInsertCmdMixin):
 	LteNcRSRP:float
 	LteNcEarfcn:int
 	LteNcPci:int
+
+	def constraints(self):
+		if self.TimeStamp==None or self.ServingSector==None or self.InterferingSector==None:
+			return False
+		return True
 
 class tbKPI(pydantic.BaseModel,getInsertCmdMixin):
 	StartTime:datetime.date
@@ -108,6 +142,16 @@ class tbKPI(pydantic.BaseModel,getInsertCmdMixin):
 	@pydantic.validator("StartTime", pre=True)
 	def parse_datetime(cls, value):
 		return datetime.datetime.strptime(value, cls.__DATETIME_PATTERN)
+
+	def constraints(self):
+		if self.ENODEB_NAME==None or self.SECTOR_DESCRIPTION==None or self.SECTOR_NAME==None or self.StartTime==None:
+			return False
+		if self.RCCConnATT!=None and self.RCCConnATT!=0:
+			self.RCCConnRATE=self.RCCConnSUCC/self.RCCConnATT
+		else:
+			self.RCCConnRATE=None
+		return True
+
 class tbPRB(pydantic.BaseModel,getInsertCmdMixin):
 	StartTime:datetime.datetime
 	ENODEB_NAME:str
@@ -217,6 +261,12 @@ class tbPRB(pydantic.BaseModel,getInsertCmdMixin):
 	@pydantic.validator("StartTime", pre=True)
 	def parse_datetime(cls, value):
 		return datetime.datetime.strptime(value, cls.__DATETIME_PATTERN)
+
+	def constrains(r):
+		if self.ENODEB_NAME==None or self.SECTOR_DESCRIPTION==None or self.SECTOR_NAME==None or self.StartTime==None:
+			return False
+		return True
+
 class tbC2I(pydantic.BaseModel,getInsertCmdMixin):
 	CITY:str
 	SCELL:str
@@ -226,6 +276,11 @@ class tbC2I(pydantic.BaseModel,getInsertCmdMixin):
 	std:float
 	sampleCount:float
 	WeightedC2I:float
+
+	def constraints(self):
+		if self.SCELL==None or self.NCELL==None:
+			return False
+		return True
 
 class tbMRODataExternal(pydantic.BaseModel,getInsertCmdMixin):
 	TimeStamp:str

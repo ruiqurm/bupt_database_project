@@ -14,7 +14,7 @@ class Settings:
     """
     DATABASE_USER = "postgres"
     DATABASE_PASSWORD = None
-    DEFAULT_DATABASE = "tb"
+    DEFAULT_DATABASE = "postgres"
 
     """
 	User Rule
