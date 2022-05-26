@@ -1,3 +1,4 @@
+from distutils.log import fatal
 from zipfile import ZipFile
 from asyncore import read
 import xml.etree.ElementTree as ET
@@ -21,7 +22,7 @@ from fastapi import APIRouter, File, UploadFile
 from enum import Enum
 from ..settings import ValidTableName, ValidUploadTableName, str2Model, Settings
 from typing import List, Optional, Dict, Union
-from ..model import tbC2Inew, tbCell, tbMRODataExternal
+from ..model import tbC2Inew, tbCell, tbMRODataExternal, tbPRB
 import csv
 import shutil
 from scipy.stats import norm
@@ -43,7 +44,7 @@ class UploadTask(BaseModel):
 __upload_dict = dict()
 
 
-async def upload_data_background(id: str, file, new_filepath: str, model: Union[tbCell, tbC2I, tbKPI, tbMROData], max_line: int):
+async def upload_data_background(id: str, file, new_filepath: str, model: Union[tbCell, tbC2I, tbKPI, tbMROData,tbPRB], max_line: int):
     """后台上传
 
     Args:
@@ -70,7 +71,8 @@ async def upload_data_background(id: str, file, new_filepath: str, model: Union[
         __upload_dict[id].done = True
         file.close()
         os.remove(new_filepath)
-
+    if isinstance(model,tbPRB):
+        await connection.execute("CALL update_tbprb_new();")
 
 @data_router.post("/upload")
 async def upload_data(name: ValidUploadTableName, file: UploadFile, background_tasks: BackgroundTasks, encoding: str = "utf-8", max_line: int = 50):
@@ -94,7 +96,10 @@ async def upload_data(name: ValidUploadTableName, file: UploadFile, background_t
             shutil.copyfileobj(file.file, buffer)
     finally:
         file.file.close()
-    f = open(new_filepath, "r", encoding=encoding)
+    try:
+        f = open(new_filepath, "r", encoding=encoding)
+    except Exception:
+        raise fastapi.HTTPException(status_code=400, detail="文件编码错误")
 
     __upload_dict[id] = UploadTask(id=id)
     background_tasks.add_task(upload_data_background,
@@ -216,15 +221,19 @@ class KPIChoice(str, Enum):
 
 
 class kpi_detail(pydantic.BaseModel):
-    StartTime: str
+    StartTime: datetime.date
     Data: Union[int, float, str]
 
 
-@data_router.get("/kpi/detail", response_model=List[kpi_detail])
+@data_router.get("/kpi/detail")
 async def get_kpi_detail(name: str, choice: KPIChoice, start_time: datetime.date, end_time: datetime.date):
-    command = 'SELECT "StartTime","{}" as "Data" From tbKPI WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3;'.format(
-        choice.value)
-    return await fetch_all(command, name, start_time, end_time)
+    # command = """
+    # SELECT "StartTime","{}" as "Data" From tbKPI WHERE "ENODEB_NAME" = (select "ENODEB_NAME" from tbKPI where "SECTOR_NAME"='{}' limit 1) AND "StartTime" BETWEEN $1 AND $2;""".format(
+    #     choice.value,name)
+    command = """
+    SELECT "StartTime","{}" as "Data" From tbKPI WHERE "SECTOR_NAME" = '{}' AND "StartTime" BETWEEN $1 AND $2;""".format(
+        choice.value,name)
+    return await fetch_all(command,start_time, end_time)
 
 
 class GranularityChoice(str, Enum):
@@ -233,35 +242,44 @@ class GranularityChoice(str, Enum):
 
 
 class prb_detail(pydantic.BaseModel):
-    StartTime: str
+    StartTime: datetime.date
     AvgNoise: float
 
 
-@data_router.get("/prb/detail", response_model=List[prb_detail])
-async def get_avg_prb_line_chart(enodeb_name: str, granularity: GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
+@data_router.get("/prb/detail")
+async def get_avg_prb_line_chart(name: str, granularity: GranularityChoice, prbindex: int, start_time: datetime.datetime, end_time: datetime.datetime):
     """
     输入网元，选择第i个PRB，选择时间区间和粒度，返回干扰噪声平均值折线图
     granularity : 粒度
     prbindex: 第几个prb
-    enodeb_name: 网元名称
+    name: 小区名称
     """
     if granularity == GranularityChoice.a15min:
+        # command = f"""
+        # SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
+        # FROM  tbPRB
+        # WHERE "ENODEB_NAME" = (select "ENODEB_NAME" from tbKPI where "SECTOR_NAME"='{name}' limit 1) AND "StartTime" BETWEEN $1 AND $2
+        # """
         command = f"""
         SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
         FROM  tbPRB
-        WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
+        WHERE "ENODEB_NAME" = '{name}' AND "StartTime" BETWEEN $1 AND $2
         """
-        return await fetch_all(command, enodeb_name, start_time, end_time)
+        return await fetch_all(command, start_time, end_time)
 
     else:
         connection = await get_connection()
-        await connection.execute("CALL update_tbprb_new();")
+        # command = f"""
+        # SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
+        # FROM  tbPRB
+        # WHERE "ENODEB_NAME" = (select "ENODEB_NAME" from tbKPI where "SECTOR_NAME"='{name}' limit 1) AND "StartTime" BETWEEN $2 AND $3
+        # """
         command = f"""
         SELECT "StartTime","AvgNoise{prbindex}" as "AvgNoise"
-        FROM  tbPRB
-        WHERE "ENODEB_NAME" = $1 AND "StartTime" BETWEEN $2 AND $3
+        FROM  tbPRBnew
+        WHERE "ENODEB_NAME" = '{name}' AND "StartTime" BETWEEN $1 AND $2
         """
-        result = await fetch_all(command, enodeb_name, start_time, end_time, connection=connection)
+        result = await fetch_all(command,start_time, end_time, connection=connection)
         await connection.close()
         return result
 
@@ -352,6 +370,9 @@ async def mro(file: UploadFile,encoding:str="utf-8"):
             zfp.extractall(folder_path)        
     finally:
         os.remove(zipfilepath)
+
+    connection = await get_connection()
+    pci2id = {i["PCI"]:i["SECTOR_ID"] for i in await fetch_all('SELECT "SECTOR_ID","PCI" From tbCell;',connection=connection)}
     try:
         unzip_path = os.path.join(folder_path, filename)
         files = []
@@ -365,23 +386,26 @@ async def mro(file: UploadFile,encoding:str="utf-8"):
                 tree = ET.parse(file)
                 root = tree.getroot()
                 assert len(root) == 2, "文件不符合要求"
-                header = root[0]
+                # header = root[0]
                 smr = root[1][0][0]
                 FIELD = ("MR.LteScRSRP", "MR.LteNcRSRP", "MR.LteScEarfcn", "MR.LteNcPci")
                 smr = smr.text.split()
                 index = [smr.index(i) for i in FIELD]
-                connection = await get_connection()
+                
                 command = tbMRODataExternal.get_insert_command()
                 result = []
                 for data in root[1][0][1:]:
-                    id = data.attrib["id"]
                     timeStamp = data.attrib["TimeStamp"]
                     for object in data:
                         object = object.text.split()
-                        d =tbMRODataExternal.from_tuple((timeStamp, id,"NAN", object[index[0]], object[index[1]], object[index[2]], object[index[3]]),ignore_but_log=True)
+                        try:
+                            scid = pci2id[int(object[5])]
+                            ncid = pci2id[int(object[7])]
+                        except ValueError:
+                            continue
+                        d =tbMRODataExternal.from_tuple((timeStamp, scid,ncid, object[index[0]], object[index[1]], object[index[2]], object[index[3]]),ignore_but_log=True)
                         if d is not None:
                             result.append(d.to_tuple())
-
                 await connection.executemany(command,result)
         return ""
     finally:

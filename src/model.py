@@ -109,7 +109,7 @@ class tbKPI(pydantic.BaseModel,getInsertCmdMixin):
 	def parse_datetime(cls, value):
 		return datetime.datetime.strptime(value, cls.__DATETIME_PATTERN)
 class tbPRB(pydantic.BaseModel,getInsertCmdMixin):
-	StartTime:datetime.date
+	StartTime:datetime.datetime
 	ENODEB_NAME:str
 	SECTOR_DESCRIPTION:str
 	SECTOR_NAME:str

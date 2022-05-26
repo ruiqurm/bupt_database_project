@@ -1,10 +1,13 @@
 
+from gettext import translation
+from http.client import HTTPException
 from fastapi import APIRouter
 from typing import Any, Optional, List
+import fastapi
 
 import pydantic
 from ..user import User
-from src.utils import fetch_all, fetch_one, fetch_one_then_wrap_model
+from src.utils import fetch_all, fetch_one, fetch_one_then_wrap_model, get_connection
 admin_router = APIRouter(
     prefix="/admin",
     tags=["admin"],
@@ -140,19 +143,31 @@ async def set_postgres_basic(settings:PostgresSettingShortcut):
     max_connections 最大连接数  
     tcp_keepalives_idle 客户端超时时间  
     """
+
+    command = "select name,setting,unit,reset_val as \"default\" from pg_settings where name in ('shared_buffers','wal_buffers','effective_cache_size','maintenance_work_mem','max_connections','tcp_keepalives_idle');"
+    origin = {item.name:item.default for item in [PostgresSettingShortcutOutput(**i) for i in await fetch_all(command)]}
     changed = 0
-    for key in settings.__fields__.keys():
-        value = getattr(settings, key)
-        if value is None:
-            continue
-        changed+=1
-        if value < 0 :
-            value = "default"
-        command = "ALTER SYSTEM SET {} = {};".format(key,value)
-        await fetch_one(command)
-    if changed > 0:
+    try:
+        for key in settings.__fields__.keys():
+            value = getattr(settings, key)
+            if value is None:
+                continue
+            changed+=1
+            if value < 0 :
+                value = "default"
+            command = "ALTER SYSTEM SET {} = {};".format(key,value)
+            await fetch_one(command)
+        if changed > 0:
+            command = "SELECT pg_reload_conf();"
+            await fetch_one(command)
+    except Exception as e: 
+        for key in settings.__fields__.keys():
+            command = "ALTER SYSTEM SET {} = {};".format(key,origin[key])
+            await fetch_one(command)
         command = "SELECT pg_reload_conf();"
+        
         await fetch_one(command)
+        raise fastapi.HTTPException(detail=str(e),status_code=400) 
     return changed
 @admin_router.get("/postgres/basic",response_model=List[PostgresSettingShortcutOutput])
 async def get_postgres_basic():
@@ -161,3 +176,19 @@ async def get_postgres_basic():
     """
     command = "select name,setting,unit,reset_val as \"default\" from pg_settings where name in ('shared_buffers','wal_buffers','effective_cache_size','maintenance_work_mem','max_connections','tcp_keepalives_idle');"
     return [PostgresSettingShortcutOutput(**i) for i in await fetch_all(command)]
+
+import os 
+
+@admin_router.get("/postgres/config")
+async def get_config():
+    command = "SHOW config_file;"
+    path = await fetch_one(command)
+    path = path["config_file"]
+    path = path.replace("postgresql.conf","postgresql.auto.conf")
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path,"r") as file:
+            return [i for i in file.read().split("\n") if not i.startswith("#") and i != ""]
+    except Exception as e:
+        return str(e)

@@ -48,27 +48,56 @@ $$;
 
 CREATE OR REPLACE FUNCTION trg_tbcell() RETURNS trigger AS $trg_tbcell$
     BEGIN
-        DELETE FROM "tbcell"
+        DELETE FROM tbcell
         WHERE "SECTOR_ID"= NEW."SECTOR_ID";
         return NEW;
     END;
 $trg_tbcell$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER tbcellBeforeInsertOrUpdate
-BEFORE INSERT ON "tbcell"
+BEFORE INSERT ON tbcell
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbcell();
 
 
 CREATE OR REPLACE FUNCTION trg_tbmrodata() RETURNS trigger AS $trg_tbmrodata$
     BEGIN
-        DELETE FROM "tbMROData"
+        DELETE FROM tbMROData
         WHERE "TimeStamp"= NEW."TimeStamp" and "ServingSector"=NEW."ServingSector" and "InterferingSector"=NEW."InterferingSector";
         return NEW;
     END;
 $trg_tbmrodata$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER tbmrodataBeforeInsertOrUpdate
-BEFORE INSERT ON "tbMROData"
+BEFORE INSERT ON tbMROData
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbmrodata();
+
+CREATE OR REPLACE FUNCTION trg_tbmroexternal() RETURNS trigger AS $trg_tbmroexternal$
+    BEGIN
+        DELETE FROM tbMROData
+        WHERE "TimeStamp"= NEW."TimeStamp" and "ServingSector"=NEW."ServingSector" and "InterferingSector"=NEW."InterferingSector";
+        return NEW;
+    END;
+$trg_tbmroexternal$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER tbmroexternalBeforeInsertOrUpdate
+BEFORE INSERT ON tbMRODataExternal
+FOR EACH ROW 
+EXECUTE FUNCTION trg_tbmroexternal();
+
+
+-- -- 外部导入的tbmro表的触发器
+-- CREATE OR REPLACE FUNCTION trg_tbmroexternal() RETURNS trigger AS $trg_tbmroexternal$
+--     BEGIN
+--         new."ServingSector"
+--         DELETE FROM "tbMROData"
+--         WHERE "TimeStamp"= NEW."TimeStamp" and "ServingSector"=NEW."ServingSector" and "InterferingSector"=NEW."InterferingSector";
+--         return NEW;
+--     END;
+-- $trg_tbmroexternal$ LANGUAGE plpgsql;
+
+-- CREATE OR REPLACE TRIGGER tbmroexternalBeforeInsertOrUpdate
+-- BEFORE INSERT ON "tbMROData"
+-- FOR EACH ROW 
+-- EXECUTE FUNCTION trg_tbmroexternal();
