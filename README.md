@@ -13,13 +13,15 @@ pip install -r requirements.txt
 ```powershell
 createdb.exe tb
 psql.exe -U postgres -d tb -f "src\sql\1_create_table.sql" 
-psql.exe -U postgres -d tb -f "src\sql\3_create_table.sql" 
+psql.exe -U postgres -d tb -f "src\sql\2_index_table.sql" 
+psql.exe -U postgres -d tb -f "src\sql\3_trigger.sql" 
 ```
 或者
 ```shell
 createdb tb
 psql -U postgres -d tb -f "src/sql/1_create_table.sql" 
-psql -U postgres -d tb -f "src/sql/3_create_table.sql" 
+psql -U postgres -d tb -f "src/sql/2_index.sql"
+psql -U postgres -d tb -f "src/sql/3_trigger.sql" 
 ```
 ## 配置数据库
 目录下新建`config.json`:
@@ -51,15 +53,15 @@ uvicorn src.main:app --reload
 | 批量导入                   |                                                              |                       |
 |  | lazy read | 1 |
 |                            | 输入文件分组                                                 | 1                     |
-|                            | 范围检查                                                     |                       |
+|                            | 范围检查                                                     | 1                     |
 |                            | 批量导入命令                                                 | 1                     |
 |                            | 触发器                                                       | 1                      |
 | 数据导出                   |                                                              | 1                     |
 |                            | 数据导出                                                     | 1                     |
 | 索引设计                   |                                                              |                       |
-|                            | 主键聚集索引                                                 |                       |
-|                            | 非聚集索引设计                                               |                       |
-|                            | 比较结果                                                     |                       |
+|                            | 主键聚集索引                                                 | 1                      |
+|                            | 非聚集索引设计                                               | 1                      |
+|                            | 比较结果                                                     | 1                      |
 | 数据库文件                 |                                                              |                       |
 |                            | 观察数据库主文件、辅文<br/>件、日志文件、数据库文件<br/>组，列出文件、文件组名称 | 1 |
 |                            | Create Database 定义语句、<br/>所在磁盘分区；                |                       |
