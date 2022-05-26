@@ -59,6 +59,31 @@ BEFORE INSERT ON tbcell
 FOR EACH ROW 
 EXECUTE FUNCTION trg_tbcell();
 
+CREATE OR REPLACE FUNCTION trg_tbprb() RETURNS trigger AS $trg_tbprb$
+    BEGIN
+        DELETE FROM "tbPRB"
+        WHERE "StartTime" = NEW."StartTime" and "SECTOR_NAME"= NEW."SECTOR_NAME";
+        return NEW;
+    END;
+$trg_tbprb$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER tbprbBeforeInsertOrUpdate
+BEFORE INSERT ON "tbPRB"
+FOR EACH ROW 
+EXECUTE FUNCTION trg_tbprb();
+
+CREATE OR REPLACE FUNCTION trg_tbkpi() RETURNS trigger AS $trg_tbkpi$
+    BEGIN
+        DELETE FROM "tbKPI"
+        WHERE "StartTime" = NEW."StartTime" and "SECTOR_NAME"= NEW."SECTOR_NAME";
+        return NEW;
+    END;
+$trg_tbkpi$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER tbkpiBeforeInsertOrUpdate
+BEFORE INSERT ON "tbKPI"
+FOR EACH ROW 
+EXECUTE FUNCTION trg_tbkpi();
 
 CREATE OR REPLACE FUNCTION trg_tbmrodata() RETURNS trigger AS $trg_tbmrodata$
     BEGIN
