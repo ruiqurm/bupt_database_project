@@ -14,7 +14,7 @@ class Settings:
     """
     DATABASE_USER = "postgres"
     DATABASE_PASSWORD = None
-    DEFAULT_DATABASE = "postgres"
+    DEFAULT_DATABASE = "tb"
 
     """
 	User Rule
@@ -57,7 +57,7 @@ class ValidTableName(str, Enum):
     tbmrodata = "tbmrodata"
     tbprbnew = "tbprbnew"
     tbC2I = "tbc2i"
-    tbmrodatanew = "tbmrodatanew"
+    tbMRODataExternal = "tbmrodataexternal"
     tbC2Inew = "tbc2inew"
     tbC2I3 = "tbc2i3"
 

@@ -26,6 +26,11 @@ from ..model import tbC2Inew, tbCell, tbMRODataExternal, tbPRB
 import csv
 import shutil
 from scipy.stats import norm
+import math 
+from matplotlib import pyplot as plt 
+import networkx as nx 
+from io import BytesIO
+from starlette.responses import StreamingResponse
 
 data_router = APIRouter(
     prefix=f"{Settings.DATA_ROUTER_PREFIX}",
@@ -319,7 +324,7 @@ class diagramResponseModel(pydantic.BaseModel):
 
 
 @data_router.get("/diagram", response_model=diagramResponseModel)
-async def network_interference_structure_diagram():
+async def network_interference_structure_diagram(threshold:float):
     """
     返回网络干扰结构图
     q 表示模块度
@@ -340,18 +345,79 @@ async def network_interference_structure_diagram():
         w = float(line["C2I_Mean"])
         edges.append(((n1, n2), w))
     nodes_, edges_ = in_order(nodes, edges)
+    # nodes = [{"id": index, "lng": pos[node][0], "lat":pos[node][1]} for index, node in enumerate(nodes)]
+
     pyl = PyLouvain(nodes_, edges_)
-    # node_dict = pyl.node_dict
-    # reverse_node_dict = dict(zip(node_dict.values(), node_dict.keys()))
+    node_dict = {node:index for index, node in enumerate(nodes)}
+    reverse_node_dict = dict(zip(node_dict.values(), node_dict.keys()))
     partition, q = pyl.apply_method()
     # print(partition)
     print("模块度：", q)
-    return {
-        "nodes": [{"id": index, "lng": pos[node][0], "lat":pos[node][1]} for index, node in enumerate(nodes)],
-        "partition": partition,
-        "q": q,
-    }
-
+    community_num = len(partition) 
+    # print('community_num:',community_num) 
+    color_board = ['red','green','blue','pink','orange','purple','scarlet'] 
+    color = {} 
+    for index in range(community_num): 
+            print("社区"+str(index+1)+":"+str(len(partition[index]))) 
+            for node_id in partition[index]: 
+                    color[node_id] = color_board[index] # color 为一个字典，key 为编号形式的节点，value 为所属社区的颜色 
+    new_color_dict = sorted(color.items(), key=lambda d:d[0], reverse = False)#  将 color 字典按照 key 的大小排序，并返回一个 list 
+    node_list = [reverse_node_dict[item[0]] for item in new_color_dict] #存储编号从小到大顺序对应的 253916-2 的形式的节点 
+    color_list = [item[1] for item in new_color_dict]#存储 node_list 中对应的节点颜色 
+    # print(node_list) 
+    # print(color_list) 
+    
+    #构建 networkx 无向图 
+    G = nx.Graph() 
+    edge_list = [] #存储边列表 
+    edge_width = [] #存储边列表对应的边粗细 
+    edge_color = [] #存储边列表对应的边颜色 
+    for line in results:
+        n1 = line["SCELL"]
+        n2 = line["NCELL"]
+        v = line["C2I_Mean"]
+        G.add_edge(n1,n2,weight=float(v)) 
+        edge_list.append([n1,n2]) 
+        if color[node_dict[n1]] == color[node_dict[n2]]:#如果边的两端颜色相同 
+                edge_color.append(color[node_dict[n1]]) #则使用点的颜色作为边的颜色 
+        else: 
+                edge_color.append('c') #否则使用其他颜色 
+        if float(v) > threshold: #阈值 
+                edge_width.append(float(v)/100.0) 
+        else: 
+                edge_width.append(0.0) 
+    
+    #  可视化 
+    plt.figure(figsize=(200,200)) 
+    _node = [int(item.split("-")[-1])%4 for item in node_list] #提取后缀模 4 取余 
+    node_0_index_list,node_1_index_list,node_2_index_list,node_3_index_list = [], [], [], [] 
+    for index,item in enumerate(_node): #划分不同后缀余数的群，以便给每个群分配一个节点的形状  node_shape  防止都用圆形，导致同一经纬度的节点重叠在一起 
+        if item == 0: 
+                node_0_index_list.append(index) 
+        if item == 1: 
+                node_1_index_list.append(index) 
+        if item == 2: 
+                node_2_index_list.append(index) 
+        if item == 3: 
+                node_3_index_list.append(index) 
+    print("node_list:",_node) 
+    nx.draw_networkx_nodes(G,  pos,  nodelist=[node_list[i]  for  i  in 
+    node_0_index_list],node_shape=7,  node_color=[color_list[i]  for  i  in  node_0_index_list], 
+    node_size=50) 
+    nx.draw_networkx_nodes(G,  pos,  nodelist=[node_list[i]  for  i  in 
+    node_1_index_list],node_shape=4,  node_color=[color_list[i]  for  i  in  node_1_index_list], 
+    node_size=50) 
+    nx.draw_networkx_nodes(G,  pos,  nodelist=[node_list[i]  for  i  in 
+    node_2_index_list],node_shape=5,  node_color=[color_list[i]  for  i  in  node_2_index_list], 
+    node_size=50) 
+    nx.draw_networkx_nodes(G,  pos,  nodelist=[node_list[i]  for  i  in 
+    node_3_index_list],node_shape=6,  node_color=[color_list[i]  for  i  in  node_3_index_list], 
+    node_size=50) 
+    nx.draw_networkx_edges(G,  pos,  edgelist  =  edge_list,  width  =  edge_width,  alpha=1, edge_color=edge_color) 
+    buf = BytesIO()
+    plt.savefig(buf,format="jpeg")
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/jpeg")
 
 def support_gbk(zip_file: ZipFile):
     # ref:https://blog.csdn.net/qq_21076851/article/details/122752196

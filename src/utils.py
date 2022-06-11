@@ -4,7 +4,11 @@ from typing import Any, Iterator, Callable, TypedDict, TypeVar, Union, List
 from itertools import zip_longest, islice
 import asyncpg
 from .settings import Settings
+import os
 
+if not os.path.exists("datalog.txt"):
+    f = open("datalog.txt","w")
+    f.close()
 class Logger(object):
     def __init__(self, filename="datalog.txt"):
         #self.terminal = sys.stdout
