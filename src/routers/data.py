@@ -388,7 +388,7 @@ async def network_interference_structure_diagram(threshold:float):
                 edge_width.append(0.0) 
     
     #  可视化 
-    plt.figure(figsize=(200,200)) 
+    plt.figure(figsize=(20,20)) 
     _node = [int(item.split("-")[-1])%4 for item in node_list] #提取后缀模 4 取余 
     node_0_index_list,node_1_index_list,node_2_index_list,node_3_index_list = [], [], [], [] 
     for index,item in enumerate(_node): #划分不同后缀余数的群，以便给每个群分配一个节点的形状  node_shape  防止都用圆形，导致同一经纬度的节点重叠在一起 
