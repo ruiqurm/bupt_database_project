@@ -1,3 +1,4 @@
+import asyncio
 from distutils.log import fatal
 from zipfile import ZipFile
 from asyncore import read
@@ -322,9 +323,9 @@ class diagramResponseModel(pydantic.BaseModel):
     partition: List[List[int]]
     q: float
 
-
+from typing import Tuple
 @data_router.get("/diagram", response_model=diagramResponseModel)
-async def network_interference_structure_diagram(threshold:float):
+async def network_interference_structure_diagram(threshold:float,figure_width=20,figure_height=20):
     """
     返回网络干扰结构图
     q 表示模块度
@@ -335,6 +336,7 @@ async def network_interference_structure_diagram(threshold:float):
         """
     results = await fetch_all(command)
     pos = await get_tbCell_pos()
+    results = [item for item in results if item["SCELL"] in pos and item["NCELL"] in pos]
     nodes = {}
     edges = []
     for line in results:
@@ -352,13 +354,13 @@ async def network_interference_structure_diagram(threshold:float):
     reverse_node_dict = dict(zip(node_dict.values(), node_dict.keys()))
     partition, q = pyl.apply_method()
     # print(partition)
-    print("模块度：", q)
+    # print("模块度：", q)
     community_num = len(partition) 
     # print('community_num:',community_num) 
     color_board = ['red','green','blue','pink','orange','purple','scarlet'] 
     color = {} 
     for index in range(community_num): 
-            print("社区"+str(index+1)+":"+str(len(partition[index]))) 
+            # print("社区"+str(index+1)+":"+str(len(partition[index]))) 
             for node_id in partition[index]: 
                     color[node_id] = color_board[index] # color 为一个字典，key 为编号形式的节点，value 为所属社区的颜色 
     new_color_dict = sorted(color.items(), key=lambda d:d[0], reverse = False)#  将 color 字典按照 key 的大小排序，并返回一个 list 
@@ -388,7 +390,7 @@ async def network_interference_structure_diagram(threshold:float):
                 edge_width.append(0.0) 
     
     #  可视化 
-    plt.figure(figsize=(20,20)) 
+    plt.figure(figsize=(figure_width,figure_height))
     _node = [int(item.split("-")[-1])%4 for item in node_list] #提取后缀模 4 取余 
     node_0_index_list,node_1_index_list,node_2_index_list,node_3_index_list = [], [], [], [] 
     for index,item in enumerate(_node): #划分不同后缀余数的群，以便给每个群分配一个节点的形状  node_shape  防止都用圆形，导致同一经纬度的节点重叠在一起 
@@ -431,6 +433,39 @@ def support_gbk(zip_file: ZipFile):
             name_to_info[real_name] = info
     return zip_file
 
+async def async_parse_mro(f:str,pci2id,encoding="utf-8"):
+    # result = []
+    connection = await get_connection()
+    command = tbMRODataExternal.get_insert_command()
+    with open(f, "r",encoding=encoding) as file:
+        tree = ET.parse(file)
+        root = tree.getroot()
+        assert len(root) == 2, "文件不符合要求"
+        # header = root[0]
+        smr = root[1][0][0]
+        FIELD = ("MR.LteScRSRP", "MR.LteNcRSRP", "MR.LteScEarfcn", "MR.LteNcPci")
+        smr = smr.text.split()
+        index = [smr.index(i) for i in FIELD]
+        
+        result = []
+        for data in root[1][0][1:]:
+            timeStamp = data.attrib["TimeStamp"]
+            for object in data:
+                object = object.text.split()
+                try:
+                    scid = pci2id[int(object[5])]
+                    ncid = pci2id[int(object[7])]
+                except ValueError:
+                    continue
+                d =tbMRODataExternal.from_tuple((timeStamp, scid,ncid, object[index[0]], object[index[1]], object[index[2]], object[index[3]]),ignore_but_log=True)
+                if d is not None:
+                    result.append(d.to_tuple())
+        try:    
+            await connection.executemany(command,result)
+        except Exception as e:
+            print(e)
+    print("Done")
+
 
 @data_router.post("/mro_parse")
 async def mro(file: UploadFile,encoding:str="utf-8"):
@@ -452,6 +487,7 @@ async def mro(file: UploadFile,encoding:str="utf-8"):
 
     connection = await get_connection()
     pci2id = {i["PCI"]:i["SECTOR_ID"] for i in await fetch_all('SELECT "SECTOR_ID","PCI" From tbCell;',connection=connection)}
+    connection.close()
     try:
         unzip_path = os.path.join(folder_path, filename)
         files = []
@@ -459,37 +495,12 @@ async def mro(file: UploadFile,encoding:str="utf-8"):
             for file in f:
                 if file.endswith(".xml") and file.startswith("TD-LTE_MRO_"):
                     files.append(os.path.join(r, file))
-        for f in files:
-            result = []
-            with open(f, "r",encoding=encoding) as file:
-                tree = ET.parse(file)
-                root = tree.getroot()
-                assert len(root) == 2, "文件不符合要求"
-                # header = root[0]
-                smr = root[1][0][0]
-                FIELD = ("MR.LteScRSRP", "MR.LteNcRSRP", "MR.LteScEarfcn", "MR.LteNcPci")
-                smr = smr.text.split()
-                index = [smr.index(i) for i in FIELD]
-                
-                command = tbMRODataExternal.get_insert_command()
-                result = []
-                for data in root[1][0][1:]:
-                    timeStamp = data.attrib["TimeStamp"]
-                    for object in data:
-                        object = object.text.split()
-                        try:
-                            scid = pci2id[int(object[5])]
-                            ncid = pci2id[int(object[7])]
-                        except ValueError:
-                            continue
-                        d =tbMRODataExternal.from_tuple((timeStamp, scid,ncid, object[index[0]], object[index[1]], object[index[2]], object[index[3]]),ignore_but_log=True)
-                        if d is not None:
-                            result.append(d.to_tuple())
-                await connection.executemany(command,result)
-        return ""
+        await asyncio.gather(*[async_parse_mro(f,pci2id,encoding) for f in files])
+    except Exception as e:
+        return f"failed when unzipping {str(e)}"
     finally:
         shutil.rmtree(folder_path)
-
+    return "ok"
 # async def upload_mro(file,encoding):
 #     counter = 0
 #     connection = await get_connection()

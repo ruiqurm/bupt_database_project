@@ -100,7 +100,7 @@ EXECUTE FUNCTION trg_tbmrodata();
 
 CREATE OR REPLACE FUNCTION trg_tbmroexternal() RETURNS trigger AS $trg_tbmroexternal$
     BEGIN
-        DELETE FROM tbMROData
+        DELETE FROM tbMRODataExternal
         WHERE "TimeStamp"= NEW."TimeStamp" and "ServingSector"=NEW."ServingSector" and "InterferingSector"=NEW."InterferingSector";
         return NEW;
     END;
